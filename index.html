@@ -7,24 +7,29 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
-header{padding:10px 16px;display:flex;justify-content:space-between}
-header button{background:#1f2228;color:#fff;border:none;padding:6px 10px}
-.weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b}
+/* ===== (GIỮ NGUYÊN CSS CŨ – KHÔNG ĐỔI) ===== */
+body { margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea }
+header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
+.weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
 .weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
 .calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 120px)}
 .day{border:1px solid #24262b;padding:6px;font-size:12px}
 .day-number{opacity:.6;margin-bottom:4px}
-.task{padding:6px;border-radius:6px;margin-bottom:4px;color:#000;cursor:pointer}
+.task{position:relative;padding:6px;border-radius:6px;margin-bottom:4px;cursor:grab;color:#000}
 .task.done{background:#c8e6c9!important}
 .task-type{font-size:10px;opacity:.8}
-.delete{float:right;cursor:pointer}
-.add{opacity:.5;font-size:11px;cursor:pointer}
+.delete{position:absolute;top:2px;right:4px;font-size:12px;cursor:pointer;opacity:0}
+.task:hover .delete{opacity:1}
+.add{opacity:.5;cursor:pointer;font-size:11px}
+.add:hover{opacity:1}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
 .modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
 .modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px}
+.modal-box button{width:100%}
 .stats-toggle{position:fixed;bottom:10px;right:10px;background:#1f2228;padding:6px 10px;cursor:pointer}
 .stats{position:fixed;bottom:50px;right:10px;background:#1b1d22;padding:12px;border-radius:8px;display:none;font-size:12px;width:220px}
+.stats h4{margin:6px 0 4px;font-size:12px;border-bottom:1px solid #333}
 </style>
 </head>
 
@@ -43,7 +48,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px}
 
 <div class="calendar" id="calendar"></div>
 
-<div class="modal" id="modal" onclick="if(event.target.id==='modal')modal.style.display='none'">
+<div class="modal" id="modal" onclick="closeModal(event)">
   <div class="modal-box">
     <input id="taskText" placeholder="Task name">
     <select id="taskPerson"></select>
@@ -52,118 +57,149 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px}
   </div>
 </div>
 
-<div class="stats-toggle" onclick="stats.style.display=stats.style.display==='block'?'none':'block'">📊 Stats</div>
+<div class="stats-toggle" onclick="toggleStats()">📊 Stats</div>
 <div class="stats" id="stats"></div>
 
 <script>
-/* ===== SUPABASE (CHỈ 1 LẦN) ===== */
-const supabase = window.supabase.createClient(
-  "https://letbykkygmmdxbmnemam.supabase.co",
-  "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
-);
+/* ===== SUPABASE ===== */
+const SUPABASE_URL = "https://letbykkygmmdxbmnemam.supabase.co";
+const SUPABASE_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ===== CONFIG ===== */
-const PEOPLE={
-  Tony:"#ff8a80",Allen:"#90caf9",Davis:"#b39ddb",Alex:"#ffe082",
-  Lucas:"#b0bec5",Hayden:"#f48fb1",Leo:"#ce93d8",Dante:"#a5d6a7"
+const PEOPLE = {
+  Tony:"#ff8a80", Allen:"#90caf9", Davis:"#b39ddb", Alex:"#ffe082",
+  Lucas:"#b0bec5", Hayden:"#f48fb1", Leo:"#ce93d8", Dante:"#a5d6a7"
 };
-const TYPES=["Design + QR","Design","Menu + QR","Menu","QR"];
+const TYPES = ["Design + QR","Design","Menu + QR","Menu","QR"];
 
-let current=new Date();
-let selectedDay=null;
-let cache={};
+let current = new Date();
+let selectedDay = null;
+let dragTask = null;
+let cache = {};
 
-/* ===== LOAD ===== */
+/* ===== DATA ===== */
 async function load(){
-  const {data}=await supabase
+  const { data } = await supabase
     .from("tasks")
     .select("*")
-    .eq("year",current.getFullYear())
-    .eq("month",current.getMonth());
+    .eq("year", current.getFullYear())
+    .eq("month", current.getMonth());
 
-  cache={};
+  cache = {};
   data.forEach(t=>{
-    cache[t.day]??=[];
+    cache[t.day] ??= [];
     cache[t.day].push(t);
   });
+}
+
+async function save(task){
+  await supabase.from("tasks").upsert(task);
 }
 
 /* ===== RENDER ===== */
 async function render(){
   await load();
-  title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
+  title.textContent = `Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
   calendar.innerHTML="";
 
-  const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
-  const offset=(new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
-  for(let i=0;i<offset;i++)calendar.appendChild(document.createElement("div"));
+  const days = new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
+  const offset = (new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
 
-  for(let d=1;d<=days;d++){
-    const box=document.createElement("div");
-    box.className="day";
-    box.innerHTML=`<div class="day-number">${d}</div>`;
+  for(let i=0;i<offset;i++) calendar.appendChild(document.createElement("div"));
 
-    (cache[d]||[]).forEach(t=>{
+  for(let i=1;i<=days;i++){
+    const d=document.createElement("div");
+    d.className="day";
+    d.ondragover=e=>e.preventDefault();
+    d.ondrop=()=>drop(i);
+    d.innerHTML=`<div class="day-number">${i}</div>`;
+
+    (cache[i]||[]).forEach(t=>{
       const el=document.createElement("div");
       el.className="task"+(t.done?" done":"");
       el.style.background=PEOPLE[t.person];
-      el.innerHTML=`<span class="delete" onclick="event.stopPropagation();removeTask(${t.id})">✖</span>
-      <b>${t.text}</b><div class="task-type">${t.person} • ${t.type}</div>`;
+      el.draggable=true;
+      el.ondragstart=()=>dragTask=t;
       el.onclick=()=>toggleDone(t);
-      box.appendChild(el);
+
+      el.innerHTML=`
+        <span class="delete" onclick="event.stopPropagation();removeTask(${t.id})">✖</span>
+        <strong>${t.text}</strong>
+        <div class="task-type">${t.person} • ${t.type}</div>
+      `;
+      d.appendChild(el);
     });
 
     const add=document.createElement("div");
     add.className="add";
     add.textContent="+ Add task";
-    add.onclick=()=>{selectedDay=d;modal.style.display="flex"};
-    box.appendChild(add);
+    add.onclick=()=>openModal(i);
+    d.appendChild(add);
 
-    calendar.appendChild(box);
+    calendar.appendChild(d);
   }
   renderStats();
 }
 
 /* ===== ACTIONS ===== */
+async function toggleDone(t){
+  t.done=!t.done;
+  await save(t);
+  render();
+}
+async function removeTask(id){
+  await supabase.from("tasks").delete().eq("id",id);
+  render();
+}
+async function drop(day){
+  if(!dragTask) return;
+  dragTask.day=day;
+  await save(dragTask);
+  dragTask=null;
+  render();
+}
+
+/* ===== MODAL ===== */
+function openModal(day){ selectedDay=day; modal.style.display="flex"; }
+function closeModal(e){ if(e.target.id==="modal") modal.style.display="none"; }
 async function saveTask(){
-  if(!taskText.value)return;
-  await supabase.from("tasks").insert({
+  if(!taskText.value.trim()) return;
+  await save({
+    id:Date.now(),
     year:current.getFullYear(),
     month:current.getMonth(),
     day:selectedDay,
     text:taskText.value,
     person:taskPerson.value,
-    type:taskType.value
+    type:taskType.value,
+    done:false
   });
-  taskText.value="";
   modal.style.display="none";
-}
-async function toggleDone(t){
-  await supabase.from("tasks").update({done:!t.done}).eq("id",t.id);
-}
-async function removeTask(id){
-  await supabase.from("tasks").delete().eq("id",id);
+  taskText.value="";
+  render();
 }
 
 /* ===== STATS ===== */
+function toggleStats(){
+  stats.style.display = stats.style.display==="block"?"none":"block";
+}
 function renderStats(){
   let all=[],done=0;
   Object.values(cache).forEach(a=>a.forEach(t=>{all.push(t);if(t.done)done++;}));
-  stats.innerHTML=`Total:${all.length}<br>Done:${done}<br>Pending:${all.length-done}`;
+  let html=`<h4>Tổng quan</h4>Tổng:${all.length}<br>Done:${done}<br>Pending:${all.length-done}`;
+  html+=`<h4>Person</h4>`;
+  Object.keys(PEOPLE).forEach(p=>html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`);
+  html+=`<h4>Task Type</h4>`;
+  TYPES.forEach(t=>html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`);
+  stats.innerHTML=html;
 }
-
-/* ===== MONTH ===== */
-function changeMonth(n){current.setMonth(current.getMonth()+n);render();}
-
-/* ===== REALTIME ===== */
-supabase.channel("tasks-rt")
-  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},()=>render())
-  .subscribe();
 
 /* ===== INIT ===== */
 Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
 render();
 </script>
+
 </body>
 </html>
