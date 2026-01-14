@@ -78,6 +78,7 @@ let current = new Date();
 let selectedDay = null;
 let dragTask = null;
 let cache = {};
+let lastHash = "";
 
 /* ===== DOM ===== */
 const calendar = document.getElementById("calendar");
@@ -88,7 +89,14 @@ const taskText = document.getElementById("taskText");
 const taskPerson = document.getElementById("taskPerson");
 const taskType = document.getElementById("taskType");
 
-/* ===== STATS (PHẢI Ở TRƯỚC render) ===== */
+/* ===== DATE UTILS (FIX TIMEZONE) ===== */
+function localDate(y,m,d){
+  const mm = String(m+1).padStart(2,'0');
+  const dd = String(d).padStart(2,'0');
+  return `${y}-${mm}-${dd}`;
+}
+
+/* ===== STATS ===== */
 function renderStats(){
   let all=[], done=0;
   Object.values(cache).forEach(a =>
@@ -115,8 +123,8 @@ function renderStats(){
 
 /* ===== LOAD ===== */
 async function load(){
-  const start = new Date(current.getFullYear(), current.getMonth(), 1).toISOString().slice(0,10);
-  const end = new Date(current.getFullYear(), current.getMonth()+1, 0).toISOString().slice(0,10);
+  const start = localDate(current.getFullYear(), current.getMonth(), 1);
+  const end = localDate(current.getFullYear(), current.getMonth()+1, 0);
 
   const { data } = await supabase
     .from("tasks")
@@ -124,16 +132,24 @@ async function load(){
     .gte("task_date", start)
     .lte("task_date", end);
 
+  const hash = JSON.stringify(data);
+  if(hash === lastHash) return false;
+  lastHash = hash;
+
   cache = {};
   (data || []).forEach(t=>{
-    const d = new Date(t.task_date).getDate();
+    const d = Number(t.task_date.slice(8,10));
     (cache[d] ??= []).push(t);
   });
+
+  return true;
 }
 
 /* ===== RENDER ===== */
-async function render(){
-  await load();
+async function render(force=false){
+  const changed = await load();
+  if(!changed && !force) return;
+
   title.textContent = `Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
   calendar.innerHTML = "";
 
@@ -161,15 +177,10 @@ async function render(){
       const del = document.createElement("span");
       del.className = "delete";
       del.textContent = "✖";
-      del.addEventListener("click",e=>{
-        e.stopPropagation();
-        removeTask(t.id);
-      });
+      del.onclick = e => { e.stopPropagation(); removeTask(t.id); };
 
-      el.innerHTML = `
-        <strong>${t.text}</strong>
-        <div class="task-type">${t.person} • ${t.type}</div>
-      `;
+      el.innerHTML = `<strong>${t.text}</strong>
+        <div class="task-type">${t.person} • ${t.type}</div>`;
       el.appendChild(del);
       d.appendChild(el);
     });
@@ -177,7 +188,7 @@ async function render(){
     const add = document.createElement("div");
     add.className = "add";
     add.textContent = "+ Add task";
-    add.addEventListener("click",()=>openModal(day));
+    add.onclick = ()=>openModal(day);
     d.appendChild(add);
 
     calendar.appendChild(d);
@@ -190,11 +201,11 @@ async function render(){
 async function saveTask(){
   if(!taskText.value.trim()) return;
 
-  const task_date = new Date(
+  const task_date = localDate(
     current.getFullYear(),
     current.getMonth(),
     selectedDay
-  ).toISOString().slice(0,10);
+  );
 
   await supabase.from("tasks").insert({
     task_date,
@@ -205,43 +216,47 @@ async function saveTask(){
   });
 
   closeModal();
+  render(true);
 }
 
 async function toggleDone(t){
   await supabase.from("tasks").update({done:!t.done}).eq("id",t.id);
+  render(true);
 }
 async function removeTask(id){
   await supabase.from("tasks").delete().eq("id",id);
+  render(true);
 }
 async function drop(day){
   if(!dragTask) return;
-  const task_date = new Date(current.getFullYear(), current.getMonth(), day).toISOString().slice(0,10);
+  const task_date = localDate(current.getFullYear(), current.getMonth(), day);
   await supabase.from("tasks").update({task_date}).eq("id",dragTask.id);
-  dragTask = null;
+  dragTask=null;
+  render(true);
 }
 
 /* ===== UI ===== */
-function openModal(day){ selectedDay = day; modal.style.display="flex"; }
+function openModal(day){ selectedDay=day; modal.style.display="flex"; }
 function closeModal(){ modal.style.display="none"; taskText.value=""; }
 function toggleStats(){ stats.style.display = stats.style.display==="block"?"none":"block"; }
 
 /* ===== EVENTS ===== */
-document.getElementById("prevMonth").onclick = ()=>{ current.setMonth(current.getMonth()-1); render(); };
-document.getElementById("nextMonth").onclick = ()=>{ current.setMonth(current.getMonth()+1); render(); };
-document.getElementById("saveTask").onclick = saveTask;
-document.getElementById("statsToggle").onclick = toggleStats;
-modal.onclick = e => { if(e.target===modal) closeModal(); };
+prevMonth.onclick = ()=>{ current.setMonth(current.getMonth()-1); render(true); };
+nextMonth.onclick = ()=>{ current.setMonth(current.getMonth()+1); render(true); };
+saveTask.onclick = saveTask;
+statsToggle.onclick = toggleStats;
+modal.onclick = e=>{ if(e.target===modal) closeModal(); };
 
-/* ===== REALTIME ===== */
-supabase.channel("tasks-rt")
-  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
-  .subscribe();
+/* ===== POLLING REALTIME (FREE) ===== */
+setInterval(()=>render(), 3000);
 
 /* ===== INIT ===== */
 Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
-render();
+render(true);
 </script>
+
 
 </body>
 </html>
+
