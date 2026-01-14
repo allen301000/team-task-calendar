@@ -7,104 +7,207 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-/* ===== (GIỮ NGUYÊN CSS CŨ – KHÔNG ĐỔI) ===== */
-body { margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea }
-header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
-header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
-.weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
-.weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
-.calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 120px)}
-.day{border:1px solid #24262b;padding:6px;font-size:12px}
-.day-number{opacity:.6;margin-bottom:4px}
-.task{position:relative;padding:6px;border-radius:6px;margin-bottom:4px;cursor:grab;color:#000}
-.task.done{background:#c8e6c9!important}
-.task-type{font-size:10px;opacity:.8}
-.delete{position:absolute;top:2px;right:4px;font-size:12px;cursor:pointer;opacity:0}
-.task:hover .delete{opacity:1}
-.add{opacity:.5;cursor:pointer;font-size:11px}
-.add:hover{opacity:1}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
-.modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
-.modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px}
-.modal-box button{width:100%}
-.stats-toggle{position:fixed;bottom:10px;right:10px;background:#1f2228;padding:6px 10px;cursor:pointer}
-.stats{position:fixed;bottom:50px;right:10px;background:#1b1d22;padding:12px;border-radius:8px;display:none;font-size:12px;width:220px}
-.stats h4{margin:6px 0 4px;font-size:12px;border-bottom:1px solid #333}
+body {
+    margin: 0;
+    font-family: system-ui, Arial;
+    background: #0f1115;
+    color: #eaeaea;
+}
+header {
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+header button {
+    background: #1f2228;
+    color: #fff;
+    border: none;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+.weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: #14161b;
+    border-bottom: 1px solid #24262b;
+}
+.weekdays div {
+    text-align: center;
+    padding: 6px 0;
+    font-size: 12px;
+    opacity: 0.7;
+}
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    height: calc(100vh - 120px);
+}
+.day {
+    border: 1px solid #24262b;
+    padding: 6px;
+    font-size: 12px;
+}
+.day-number {
+    opacity: 0.6;
+    margin-bottom: 4px;
+}
+.task {
+    position: relative;
+    padding: 6px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    cursor: grab;
+    color: #000;
+}
+.task.done {
+    background: #c8e6c9 !important;
+}
+.task-type {
+    font-size: 10px;
+    opacity: .8;
+}
+.delete {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+}
+.task:hover .delete {
+    opacity: 1;
+}
+.add {
+    opacity: .5;
+    cursor: pointer;
+    font-size: 11px;
+}
+.add:hover { opacity: 1; }
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.modal-box {
+    background: #1b1d22;
+    padding: 16px;
+    border-radius: 10px;
+    width: 260px;
+}
+.modal-box input,
+.modal-box select {
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 6px;
+}
+.stats-toggle {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: #1f2228;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+.stats {
+    position: fixed;
+    bottom: 50px;
+    right: 10px;
+    background: #1b1d22;
+    padding: 12px;
+    border-radius: 8px;
+    display: none;
+    font-size: 12px;
+    width: 220px;
+}
+.stats h4 {
+    margin: 6px 0 4px;
+    font-size: 12px;
+    border-bottom: 1px solid #333;
+}
 </style>
 </head>
 
 <body>
 
 <header>
-<button onclick="changeMonth(-1)">←</button>
-<div id="title"></div>
-<button onclick="changeMonth(1)">→</button>
+    <button onclick="changeMonth(-1)">←</button>
+    <div id="title"></div>
+    <button onclick="changeMonth(1)">→</button>
 </header>
 
 <div class="weekdays">
-<div>Mon</div><div>Tue</div><div>Wed</div>
-<div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+    <div>Mon</div><div>Tue</div><div>Wed</div>
+    <div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
 </div>
 
 <div class="calendar" id="calendar"></div>
 
 <div class="modal" id="modal" onclick="closeModal(event)">
-  <div class="modal-box">
-    <input id="taskText" placeholder="Task name">
-    <select id="taskPerson"></select>
-    <select id="taskType"></select>
-    <button onclick="saveTask()">Add Task</button>
-  </div>
+    <div class="modal-box">
+        <input id="taskText" placeholder="Task name">
+        <select id="taskPerson"></select>
+        <select id="taskType"></select>
+        <button onclick="saveTask()">Add Task</button>
+    </div>
 </div>
 
 <div class="stats-toggle" onclick="toggleStats()">📊 Stats</div>
 <div class="stats" id="stats"></div>
 
 <script>
-/* ===== SUPABASE ===== */
-const SUPABASE_URL = "https://letbykkygmmdxbmnemam.supabase.co";
-const SUPABASE_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-/* ===== CONFIG ===== */
+/* ================= CONFIG ================= */
 const PEOPLE = {
-  Tony:"#ff8a80", Allen:"#90caf9", Davis:"#b39ddb", Alex:"#ffe082",
-  Lucas:"#b0bec5", Hayden:"#f48fb1", Leo:"#ce93d8", Dante:"#a5d6a7"
+    Tony:"#ff8a80", Allen:"#90caf9", Davis:"#b39ddb", Alex:"#ffe082",
+    Lucas:"#b0bec5", Hayden:"#f48fb1", Leo:"#ce93d8", Dante:"#a5d6a7"
 };
 const TYPES = ["Design + QR","Design","Menu + QR","Menu","QR"];
+
+const supabase = window.supabase.createClient(
+  "https://letbykkygmmdxbmnemam.supabase.co",
+  "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
+);
 
 let current = new Date();
 let selectedDay = null;
 let dragTask = null;
 let cache = {};
 
-/* ===== DATA ===== */
-async function load(){
+/* ================= DATA ================= */
+function monthRange() {
+  return {
+    start: new Date(current.getFullYear(), current.getMonth(), 1).toISOString().slice(0,10),
+    end: new Date(current.getFullYear(), current.getMonth()+1, 0).toISOString().slice(0,10)
+  };
+}
+
+async function load() {
+  const { start, end } = monthRange();
   const { data } = await supabase
     .from("tasks")
     .select("*")
-    .eq("year", current.getFullYear())
-    .eq("month", current.getMonth());
+    .gte("task_date", start)
+    .lte("task_date", end);
 
   cache = {};
-  data.forEach(t=>{
-    cache[t.day] ??= [];
-    cache[t.day].push(t);
+  (data || []).forEach(t => {
+    const day = new Date(t.task_date).getDate();
+    cache[day] ??= [];
+    cache[day].push(t);
   });
 }
 
-async function save(task){
-  await supabase.from("tasks").upsert(task);
-}
-
-/* ===== RENDER ===== */
-async function render(){
+/* ================= RENDER ================= */
+async function render() {
   await load();
   title.textContent = `Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
-  calendar.innerHTML="";
+  calendar.innerHTML = "";
 
-  const days = new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
-  const offset = (new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
+  const days = new Date(current.getFullYear(), current.getMonth()+1, 0).getDate();
+  const offset = (new Date(current.getFullYear(), current.getMonth(), 1).getDay()+6)%7;
 
   for(let i=0;i<offset;i++) calendar.appendChild(document.createElement("div"));
 
@@ -139,63 +242,94 @@ async function render(){
 
     calendar.appendChild(d);
   }
+
   renderStats();
 }
 
-/* ===== ACTIONS ===== */
-async function toggleDone(t){
-  t.done=!t.done;
-  await save(t);
-  render();
-}
-async function removeTask(id){
-  await supabase.from("tasks").delete().eq("id",id);
-  render();
-}
-async function drop(day){
-  if(!dragTask) return;
-  dragTask.day=day;
-  await save(dragTask);
-  dragTask=null;
-  render();
-}
-
-/* ===== MODAL ===== */
-function openModal(day){ selectedDay=day; modal.style.display="flex"; }
-function closeModal(e){ if(e.target.id==="modal") modal.style.display="none"; }
+/* ================= ACTIONS ================= */
 async function saveTask(){
   if(!taskText.value.trim()) return;
-  await save({
-    id:Date.now(),
-    year:current.getFullYear(),
-    month:current.getMonth(),
-    day:selectedDay,
-    text:taskText.value,
-    person:taskPerson.value,
-    type:taskType.value,
-    done:false
+
+  const date = new Date(
+    current.getFullYear(),
+    current.getMonth(),
+    selectedDay
+  ).toISOString().slice(0,10);
+
+  await supabase.from("tasks").insert({
+    id: Date.now(),
+    task_date: date,
+    text: taskText.value,
+    person: taskPerson.value,
+    type: taskType.value,
+    done: false
   });
+
   modal.style.display="none";
   taskText.value="";
-  render();
 }
 
-/* ===== STATS ===== */
-function toggleStats(){
-  stats.style.display = stats.style.display==="block"?"none":"block";
+async function toggleDone(t){
+  await supabase.from("tasks")
+    .update({ done: !t.done })
+    .eq("id", t.id);
 }
+
+async function removeTask(id){
+  await supabase.from("tasks").delete().eq("id", id);
+}
+
+async function drop(day){
+  if(!dragTask) return;
+  const date = new Date(
+    current.getFullYear(),
+    current.getMonth(),
+    day
+  ).toISOString().slice(0,10);
+
+  await supabase.from("tasks")
+    .update({ task_date: date })
+    .eq("id", dragTask.id);
+
+  dragTask=null;
+}
+
+/* ================= UI ================= */
+function changeMonth(n){ current.setMonth(current.getMonth()+n); render(); }
+function openModal(d){ selectedDay=d; modal.style.display="flex"; }
+function closeModal(e){ if(e.target.id==="modal") modal.style.display="none"; }
+function toggleStats(){ stats.style.display = stats.style.display==="block"?"none":"block"; }
+
 function renderStats(){
-  let all=[],done=0;
-  Object.values(cache).forEach(a=>a.forEach(t=>{all.push(t);if(t.done)done++;}));
-  let html=`<h4>Tổng quan</h4>Tổng:${all.length}<br>Done:${done}<br>Pending:${all.length-done}`;
+  let all=[], done=0;
+  Object.values(cache).forEach(a=>a.forEach(t=>{
+    all.push(t); if(t.done) done++;
+  }));
+
+  let html=`<h4>Tổng quan</h4>
+  Tổng: ${all.length}<br>
+  Done: ${done}<br>
+  Pending: ${all.length-done}`;
+
   html+=`<h4>Person</h4>`;
-  Object.keys(PEOPLE).forEach(p=>html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`);
+  Object.keys(PEOPLE).forEach(p=>{
+    html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`;
+  });
+
   html+=`<h4>Task Type</h4>`;
-  TYPES.forEach(t=>html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`);
+  TYPES.forEach(t=>{
+    html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`;
+  });
+
   stats.innerHTML=html;
 }
 
-/* ===== INIT ===== */
+/* ================= REALTIME ================= */
+supabase.channel("tasks")
+  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
+  .subscribe();
+
+/* ================= INIT ================= */
 Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
 render();
