@@ -1,161 +1,209 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <title>Team Task Calendar</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8" />
+<title>Team Task Calendar</title>
 
-  <!-- Supabase SDK – CHỈ 1 LẦN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background: #f5f6fa;
-      margin: 0;
-      padding: 20px;
-    }
+<style>
+body{font-family:system-ui;background:#f5f6fa;margin:0;padding:20px}
+h1{text-align:center;margin-bottom:10px}
 
-    h1 {
-      text-align: center;
-    }
+.controls{text-align:center;margin-bottom:10px}
+button{cursor:pointer}
 
-    .calendar {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 10px;
-    }
+.calendar{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:8px;
+}
 
-    .day {
-      background: #fff;
-      border-radius: 8px;
-      padding: 8px;
-      min-height: 140px;
-      box-shadow: 0 2px 6px rgba(0,0,0,.08);
-    }
+.day{
+  background:#fff;
+  border-radius:8px;
+  padding:6px;
+  min-height:120px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  font-size:12px;
+}
 
-    .day h3 {
-      margin: 0 0 6px;
-      font-size: 14px;
-      text-align: center;
-    }
+.day-header{
+  font-weight:600;
+  text-align:center;
+  margin-bottom:4px;
+}
 
-    .task {
-      background: #eef2ff;
-      border-radius: 6px;
-      padding: 6px;
-      margin-bottom: 6px;
-      font-size: 12px;
-      cursor: pointer;
-    }
+.task{
+  border-radius:6px;
+  padding:4px 6px;
+  margin-bottom:4px;
+  font-size:11px;
+  cursor:pointer;
+  position:relative;
+}
 
-    .task.done {
-      background: #d1fae5;
-      text-decoration: line-through;
-    }
+.task.done{
+  background:#d1fae5!important;
+  text-decoration:line-through;
+}
 
-    button {
-      width: 100%;
-      margin-top: 6px;
-      font-size: 12px;
-      cursor: pointer;
-    }
-  </style>
+.task .del{
+  position:absolute;
+  right:4px;
+  top:2px;
+  font-size:10px;
+  cursor:pointer;
+}
+
+.person-Tony{background:#fee2e2}
+.person-Allen{background:#e0e7ff}
+.person-Davis{background:#dcfce7}
+.person-Alex{background:#fef9c3}
+.person-Lucas{background:#ede9fe}
+.person-Hayden{background:#cffafe}
+.person-Leo{background:#fae8ff}
+.person-Dante{background:#ffe4e6}
+
+.add-btn{
+  width:100%;
+  font-size:11px;
+  margin-top:4px;
+}
+</style>
 </head>
+
 <body>
 
 <h1>Team Task Calendar</h1>
 
+<div class="controls">
+  <button onclick="changeMonth(-1)">◀</button>
+  <span id="monthLabel"></span>
+  <button onclick="changeMonth(1)">▶</button>
+</div>
+
 <div class="calendar" id="calendar"></div>
 
 <script>
-/* =========================
-   1. SUPABASE INIT (CHUẨN)
-========================= */
-const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
-const SUPABASE_KEY = "YOUR_PUBLIC_ANON_KEY";
+/* ===== SUPABASE CONFIG ===== */
+const SUPABASE_URL = "https://letbykkygmmdxbmnemam.supabase.co";
+const SUPABASE_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
 
 const supabaseClient = supabase.createClient(
   SUPABASE_URL,
   SUPABASE_KEY
 );
 
-/* =========================
-   2. CALENDAR RENDER
-========================= */
-const calendarEl = document.getElementById("calendar");
-const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+/* ===== DATA ===== */
+const persons = ["Tony","Allen","Davis","Alex","Lucas","Hayden","Leo","Dante"];
+const taskTypes = ["Design + QR","Design","Menu + QR","Menu","QR"];
 
-days.forEach(day => {
-  const div = document.createElement("div");
-  div.className = "day";
-  div.innerHTML = `
-    <h3>${day}</h3>
-    <div class="tasks"></div>
-    <button onclick="addTask('${day}')">+ Task</button>
-  `;
-  calendarEl.appendChild(div);
-});
+let current = new Date();
 
-/* =========================
-   3. ADD TASK
-========================= */
-async function addTask(day) {
-  const title = prompt("Task name?");
-  if (!title) return;
+/* ===== RENDER CALENDAR ===== */
+function renderCalendar(){
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
 
-  const { error } = await supabaseClient
-    .from("tasks")
-    .insert([{ title, day, done: false }]);
+  const year = current.getFullYear();
+  const month = current.getMonth();
+  document.getElementById("monthLabel").innerText =
+    current.toLocaleDateString("vi-VN",{month:"long",year:"numeric"});
 
-  if (error) {
-    alert(error.message);
-  } else {
-    loadTasks();
+  const firstDay = new Date(year,month,1);
+  const lastDay = new Date(year,month+1,0);
+
+  const startWeekDay = (firstDay.getDay()+6)%7;
+
+  for(let i=0;i<startWeekDay;i++){
+    cal.appendChild(document.createElement("div"));
   }
+
+  for(let d=1; d<=lastDay.getDate(); d++){
+    const date = new Date(year,month,d);
+    const cell = document.createElement("div");
+    cell.className="day";
+
+    cell.innerHTML = `
+      <div class="day-header">
+        ${date.toLocaleDateString("vi-VN",{weekday:"short"})} ${d}
+      </div>
+      <div class="tasks" data-date="${date.toISOString().slice(0,10)}"></div>
+      <button class="add-btn" onclick="addTask('${date.toISOString().slice(0,10)}')">+ Task</button>
+    `;
+    cal.appendChild(cell);
+  }
+
+  loadTasks();
 }
 
-/* =========================
-   4. LOAD TASKS
-========================= */
-async function loadTasks() {
-  const { data, error } = await supabaseClient
+/* ===== ADD TASK ===== */
+async function addTask(date){
+  const title = prompt("Task name?");
+  if(!title) return;
+
+  const person = prompt("Person:\n"+persons.join(", "));
+  if(!persons.includes(person)) return alert("Sai person");
+
+  const task_type = prompt("Task type:\n"+taskTypes.join(", "));
+  if(!taskTypes.includes(task_type)) return alert("Sai task type");
+
+  await supabaseClient.from("tasks").insert({
+    title, task_date:date, person, task_type
+  });
+
+  loadTasks();
+}
+
+/* ===== LOAD TASKS ===== */
+async function loadTasks(){
+  const monthStart = new Date(current.getFullYear(),current.getMonth(),1).toISOString().slice(0,10);
+  const monthEnd = new Date(current.getFullYear(),current.getMonth()+1,0).toISOString().slice(0,10);
+
+  const { data } = await supabaseClient
     .from("tasks")
-    .select("*");
+    .select("*")
+    .gte("task_date",monthStart)
+    .lte("task_date",monthEnd);
 
-  if (error) {
-    console.error(error);
-    return;
-  }
+  document.querySelectorAll(".tasks").forEach(t=>t.innerHTML="");
 
-  document.querySelectorAll(".tasks").forEach(t => t.innerHTML = "");
+  data.forEach(t=>{
+    const box = document.querySelector(`.tasks[data-date="${t.task_date}"]`);
+    if(!box) return;
 
-  data.forEach(task => {
-    const dayEl = [...document.querySelectorAll(".day")]
-      .find(d => d.querySelector("h3").innerText === task.day);
+    const el = document.createElement("div");
+    el.className = `task person-${t.person}`+(t.done?" done":"");
+    el.innerHTML = `
+      ${t.title}<br><small>${t.person} • ${t.task_type}</small>
+      <span class="del">✕</span>
+    `;
 
-    if (!dayEl) return;
-
-    const taskEl = document.createElement("div");
-    taskEl.className = "task" + (task.done ? " done" : "");
-    taskEl.innerText = task.title;
-
-    taskEl.onclick = async () => {
-      await supabaseClient
-        .from("tasks")
-        .update({ done: !task.done })
-        .eq("id", task.id);
+    el.querySelector(".del").onclick = async(e)=>{
+      e.stopPropagation();
+      await supabaseClient.from("tasks").delete().eq("id",t.id);
       loadTasks();
     };
 
-    dayEl.querySelector(".tasks").appendChild(taskEl);
+    el.onclick = async()=>{
+      await supabaseClient.from("tasks")
+        .update({done:!t.done})
+        .eq("id",t.id);
+      loadTasks();
+    };
+
+    box.appendChild(el);
   });
 }
 
-/* =========================
-   5. INIT
-========================= */
-loadTasks();
+/* ===== CHANGE MONTH ===== */
+function changeMonth(n){
+  current.setMonth(current.getMonth()+n);
+  renderCalendar();
+}
+
+renderCalendar();
 </script>
 
 </body>
