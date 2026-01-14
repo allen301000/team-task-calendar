@@ -5,7 +5,6 @@
 <title>Monthly Task Calendar</title>
 
 <style>
-/* ===== GIỮ NGUYÊN CSS – KHÔNG ĐỔI ===== */
 body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
 header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
 header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
@@ -34,9 +33,9 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 <body>
 
 <header>
-  <button onclick="changeMonth(-1)">←</button>
+  <button id="prevMonth">←</button>
   <div id="title"></div>
-  <button onclick="changeMonth(1)">→</button>
+  <button id="nextMonth">→</button>
 </header>
 
 <div class="weekdays">
@@ -46,26 +45,25 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 <div class="calendar" id="calendar"></div>
 
-<div class="modal" id="modal" onclick="closeModal(event)">
+<div class="modal" id="modal">
   <div class="modal-box">
     <input id="taskText" placeholder="Task name">
     <select id="taskPerson"></select>
     <select id="taskType"></select>
-    <button onclick="saveTask()">Add Task</button>
+    <button id="saveTaskBtn">Add Task</button>
   </div>
 </div>
 
-<div class="stats-toggle" onclick="toggleStats()">📊 Stats</div>
+<div class="stats-toggle" id="statsToggle">📊 Stats</div>
 <div class="stats" id="stats"></div>
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 /* ===== SUPABASE ===== */
-const db = createClient(
-  "https://letbykkygmmdxbmnemam.supabase.co",
-  "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
-);
+const SUPABASE_URL = "https://letbykkygmmdxbmnemam.supabase.co";
+const SUPABASE_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ===== CONFIG ===== */
 const PEOPLE = {
@@ -74,17 +72,25 @@ const PEOPLE = {
 };
 const TYPES = ["Design + QR","Design","Menu + QR","Menu","QR"];
 
+/* ===== STATE ===== */
 let current = new Date();
 let selectedDay = null;
 let dragTask = null;
 let cache = {};
 
-/* ===== LOAD ===== */
-async function load() {
-  const start = new Date(current.getFullYear(), current.getMonth(), 1)
-    .toISOString().slice(0,10);
-  const end = new Date(current.getFullYear(), current.getMonth()+1, 0)
-    .toISOString().slice(0,10);
+/* ===== DOM ===== */
+const calendar = document.getElementById("calendar");
+const modal = document.getElementById("modal");
+const title = document.getElementById("title");
+const stats = document.getElementById("stats");
+const taskText = document.getElementById("taskText");
+const taskPerson = document.getElementById("taskPerson");
+const taskType = document.getElementById("taskType");
+
+/* ===== DATA ===== */
+async function load(){
+  const start = new Date(current.getFullYear(), current.getMonth(), 1).toISOString().slice(0,10);
+  const end = new Date(current.getFullYear(), current.getMonth()+1, 0).toISOString().slice(0,10);
 
   const { data } = await db
     .from("tasks")
@@ -93,14 +99,14 @@ async function load() {
     .lte("task_date", end);
 
   cache = {};
-  (data || []).forEach(t => {
+  (data || []).forEach(t=>{
     const d = new Date(t.task_date).getDate();
     (cache[d] ??= []).push(t);
   });
 }
 
 /* ===== RENDER ===== */
-async function render() {
+async function render(){
   await load();
   title.textContent = `Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
   calendar.innerHTML = "";
@@ -110,33 +116,42 @@ async function render() {
 
   for(let i=0;i<offset;i++) calendar.appendChild(document.createElement("div"));
 
-  for(let i=1;i<=days;i++){
-    const d=document.createElement("div");
-    d.className="day";
-    d.ondragover=e=>e.preventDefault();
-    d.ondrop=()=>drop(i);
-    d.innerHTML=`<div class="day-number">${i}</div>`;
+  for(let day=1; day<=days; day++){
+    const d = document.createElement("div");
+    d.className = "day";
+    d.innerHTML = `<div class="day-number">${day}</div>`;
+    d.ondragover = e => e.preventDefault();
+    d.ondrop = () => drop(day);
 
-    (cache[i]||[]).forEach(t=>{
-      const el=document.createElement("div");
-      el.className="task"+(t.done?" done":"");
-      el.style.background=PEOPLE[t.person];
-      el.draggable=true;
-      el.ondragstart=()=>dragTask=t;
-      el.onclick=()=>toggleDone(t);
+    (cache[day]||[]).forEach(t=>{
+      const el = document.createElement("div");
+      el.className = "task"+(t.done?" done":"");
+      el.style.background = PEOPLE[t.person];
+      el.draggable = true;
 
-      el.innerHTML=`
-        <span class="delete" onclick="event.stopPropagation();removeTask(${t.id})">✖</span>
+      el.addEventListener("dragstart",()=>dragTask=t);
+      el.addEventListener("click",()=>toggleDone(t));
+
+      const del = document.createElement("span");
+      del.className = "delete";
+      del.textContent = "✖";
+      del.addEventListener("click",e=>{
+        e.stopPropagation();
+        removeTask(t.id);
+      });
+
+      el.innerHTML = `
         <strong>${t.text}</strong>
         <div class="task-type">${t.person} • ${t.type}</div>
       `;
+      el.appendChild(del);
       d.appendChild(el);
     });
 
-    const add=document.createElement("div");
-    add.className="add";
-    add.textContent="+ Add task";
-    add.onclick=()=>openModal(i);
+    const add = document.createElement("div");
+    add.className = "add";
+    add.textContent = "+ Add task";
+    add.addEventListener("click",()=>openModal(day));
     d.appendChild(add);
 
     calendar.appendChild(d);
@@ -156,22 +171,21 @@ async function saveTask(){
 
   await db.from("tasks").insert({
     task_date,
-    text: taskText.value.trim(),
+    text: taskText.value,
     person: taskPerson.value,
     type: taskType.value,
-    done: false
+    done:false
   });
 
-  modal.style.display="none";
-  taskText.value="";
+  closeModal();
 }
 
 async function toggleDone(t){
-  await db.from("tasks").update({ done: !t.done }).eq("id", t.id);
+  await db.from("tasks").update({done:!t.done}).eq("id",t.id);
 }
 
 async function removeTask(id){
-  await db.from("tasks").delete().eq("id", id);
+  await db.from("tasks").delete().eq("id",id);
 }
 
 async function drop(day){
@@ -182,27 +196,52 @@ async function drop(day){
     day
   ).toISOString().slice(0,10);
 
-  await db.from("tasks").update({ task_date }).eq("id", dragTask.id);
+  await db.from("tasks").update({task_date}).eq("id",dragTask.id);
   dragTask = null;
 }
 
+/* ===== UI ===== */
+function openModal(day){
+  selectedDay = day;
+  modal.style.display = "flex";
+}
+function closeModal(){
+  modal.style.display = "none";
+  taskText.value = "";
+}
+function toggleStats(){
+  stats.style.display = stats.style.display==="block"?"none":"block";
+}
+
+/* ===== STATS ===== */
+function renderStats(){
+  let all=[],done=0;
+  Object.values(cache).forEach(a=>a.forEach(t=>{all.push(t);if(t.done)done++;}));
+  let html=`<h4>Tổng quan</h4>Tổng:${all.length}<br>Done:${done}<br>Pending:${all.length-done}`;
+  html+=`<h4>Person</h4>`;
+  Object.keys(PEOPLE).forEach(p=>html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`);
+  html+=`<h4>Task Type</h4>`;
+  TYPES.forEach(t=>html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`);
+  stats.innerHTML = html;
+}
+
+/* ===== EVENTS ===== */
+document.getElementById("prevMonth").addEventListener("click",()=>{
+  current.setMonth(current.getMonth()-1); render();
+});
+document.getElementById("nextMonth").addEventListener("click",()=>{
+  current.setMonth(current.getMonth()+1); render();
+});
+document.getElementById("saveTaskBtn").addEventListener("click",saveTask);
+document.getElementById("statsToggle").addEventListener("click",toggleStats);
+modal.addEventListener("click",e=>{
+  if(e.target===modal) closeModal();
+});
+
 /* ===== REALTIME ===== */
 db.channel("tasks-realtime")
-  .on("postgres_changes",
-    { event:"*", schema:"public", table:"tasks" },
-    () => render()
-  )
+  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
   .subscribe();
-
-/* ===== UI (GẮN GLOBAL CHO INLINE ONCLICK) ===== */
-window.openModal = d => { selectedDay=d; modal.style.display="flex"; };
-window.closeModal = e => { if(e.target.id==="modal") modal.style.display="none"; };
-window.toggleStats = () => {
-  stats.style.display = stats.style.display==="block" ? "none" : "block";
-};
-window.changeMonth = n => { current.setMonth(current.getMonth()+n); render(); };
-window.saveTask = saveTask;
-window.removeTask = removeTask;
 
 /* ===== INIT ===== */
 Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
