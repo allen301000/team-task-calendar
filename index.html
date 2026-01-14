@@ -1,209 +1,193 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8" />
-<title>Team Task Calendar</title>
+<meta charset="UTF-8">
+<title>Monthly Task Calendar</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body{font-family:system-ui;background:#f5f6fa;margin:0;padding:20px}
-h1{text-align:center;margin-bottom:10px}
-
-.controls{text-align:center;margin-bottom:10px}
-button{cursor:pointer}
-
-.calendar{
-  display:grid;
-  grid-template-columns:repeat(7,1fr);
-  gap:8px;
-}
-
-.day{
-  background:#fff;
-  border-radius:8px;
-  padding:6px;
-  min-height:120px;
-  box-shadow:0 2px 6px rgba(0,0,0,.08);
-  font-size:12px;
-}
-
-.day-header{
-  font-weight:600;
-  text-align:center;
-  margin-bottom:4px;
-}
-
-.task{
-  border-radius:6px;
-  padding:4px 6px;
-  margin-bottom:4px;
-  font-size:11px;
-  cursor:pointer;
-  position:relative;
-}
-
-.task.done{
-  background:#d1fae5!important;
-  text-decoration:line-through;
-}
-
-.task .del{
-  position:absolute;
-  right:4px;
-  top:2px;
-  font-size:10px;
-  cursor:pointer;
-}
-
-.person-Tony{background:#fee2e2}
-.person-Allen{background:#e0e7ff}
-.person-Davis{background:#dcfce7}
-.person-Alex{background:#fef9c3}
-.person-Lucas{background:#ede9fe}
-.person-Hayden{background:#cffafe}
-.person-Leo{background:#fae8ff}
-.person-Dante{background:#ffe4e6}
-
-.add-btn{
-  width:100%;
-  font-size:11px;
-  margin-top:4px;
-}
+/* ===== GIỮ NGUYÊN CSS CỦA ANH ===== */
+body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
+header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
+.weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
+.weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 120px)}
+.day{border:1px solid #24262b;padding:6px;font-size:12px}
+.day-number{opacity:.6;margin-bottom:4px}
+.task{position:relative;padding:6px;border-radius:6px;margin-bottom:4px;cursor:grab;color:#000}
+.task.done{background:#c8e6c9!important}
+.task-type{font-size:10px;opacity:.8}
+.delete{position:absolute;top:2px;right:4px;font-size:12px;cursor:pointer;opacity:0}
+.task:hover .delete{opacity:1}
+.add{opacity:.5;cursor:pointer;font-size:11px}
+.add:hover{opacity:1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
+.modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
+.modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px}
+.modal-box button{width:100%}
+.stats-toggle{position:fixed;bottom:10px;right:10px;background:#1f2228;padding:6px 10px;cursor:pointer}
+.stats{position:fixed;bottom:50px;right:10px;background:#1b1d22;padding:12px;border-radius:8px;display:none;font-size:12px;width:220px}
+.stats h4{margin:6px 0 4px;font-size:12px;border-bottom:1px solid #333}
 </style>
 </head>
 
 <body>
 
-<h1>Team Task Calendar</h1>
+<header>
+  <button onclick="changeMonth(-1)">←</button>
+  <div id="title"></div>
+  <button onclick="changeMonth(1)">→</button>
+</header>
 
-<div class="controls">
-  <button onclick="changeMonth(-1)">◀</button>
-  <span id="monthLabel"></span>
-  <button onclick="changeMonth(1)">▶</button>
+<div class="weekdays">
+  <div>Mon</div><div>Tue</div><div>Wed</div>
+  <div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
 </div>
 
 <div class="calendar" id="calendar"></div>
 
-<script>
-/* ===== SUPABASE CONFIG ===== */
-const SUPABASE_URL = "https://letbykkygmmdxbmnemam.supabase.co";
-const SUPABASE_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
+<div class="modal" id="modal" onclick="closeModal(event)">
+  <div class="modal-box">
+    <input id="taskText" placeholder="Task name">
+    <select id="taskPerson"></select>
+    <select id="taskType"></select>
+    <button onclick="saveTask()">Add Task</button>
+  </div>
+</div>
 
+<div class="stats-toggle" onclick="toggleStats()">📊 Stats</div>
+<div class="stats" id="stats"></div>
+
+<script>
+/* ===== SUPABASE ===== */
 const supabaseClient = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
+  "https://letbykkygmmdxbmnemam.supabase.co",
+  "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
 );
 
-/* ===== DATA ===== */
-const persons = ["Tony","Allen","Davis","Alex","Lucas","Hayden","Leo","Dante"];
-const taskTypes = ["Design + QR","Design","Menu + QR","Menu","QR"];
+/* ===== CONFIG ===== */
+const PEOPLE = {
+  Tony:"#ff8a80", Allen:"#90caf9", Davis:"#b39ddb", Alex:"#ffe082",
+  Lucas:"#b0bec5", Hayden:"#f48fb1", Leo:"#ce93d8", Dante:"#a5d6a7"
+};
+const TYPES = ["Design + QR","Design","Menu + QR","Menu","QR"];
 
-let current = new Date();
+let current=new Date(), selectedDay=null, dragTask=null, tasks=[];
 
-/* ===== RENDER CALENDAR ===== */
-function renderCalendar(){
-  const cal = document.getElementById("calendar");
-  cal.innerHTML = "";
-
-  const year = current.getFullYear();
-  const month = current.getMonth();
-  document.getElementById("monthLabel").innerText =
-    current.toLocaleDateString("vi-VN",{month:"long",year:"numeric"});
-
-  const firstDay = new Date(year,month,1);
-  const lastDay = new Date(year,month+1,0);
-
-  const startWeekDay = (firstDay.getDay()+6)%7;
-
-  for(let i=0;i<startWeekDay;i++){
-    cal.appendChild(document.createElement("div"));
-  }
-
-  for(let d=1; d<=lastDay.getDate(); d++){
-    const date = new Date(year,month,d);
-    const cell = document.createElement("div");
-    cell.className="day";
-
-    cell.innerHTML = `
-      <div class="day-header">
-        ${date.toLocaleDateString("vi-VN",{weekday:"short"})} ${d}
-      </div>
-      <div class="tasks" data-date="${date.toISOString().slice(0,10)}"></div>
-      <button class="add-btn" onclick="addTask('${date.toISOString().slice(0,10)}')">+ Task</button>
-    `;
-    cal.appendChild(cell);
-  }
-
-  loadTasks();
-}
-
-/* ===== ADD TASK ===== */
-async function addTask(date){
-  const title = prompt("Task name?");
-  if(!title) return;
-
-  const person = prompt("Person:\n"+persons.join(", "));
-  if(!persons.includes(person)) return alert("Sai person");
-
-  const task_type = prompt("Task type:\n"+taskTypes.join(", "));
-  if(!taskTypes.includes(task_type)) return alert("Sai task type");
-
-  await supabaseClient.from("tasks").insert({
-    title, task_date:date, person, task_type
-  });
-
-  loadTasks();
-}
-
-/* ===== LOAD TASKS ===== */
-async function loadTasks(){
-  const monthStart = new Date(current.getFullYear(),current.getMonth(),1).toISOString().slice(0,10);
-  const monthEnd = new Date(current.getFullYear(),current.getMonth()+1,0).toISOString().slice(0,10);
+/* ===== LOAD FROM SUPABASE ===== */
+async function load(){
+  const start=new Date(current.getFullYear(),current.getMonth(),1).toISOString().slice(0,10);
+  const end=new Date(current.getFullYear(),current.getMonth()+1,0).toISOString().slice(0,10);
 
   const { data } = await supabaseClient
     .from("tasks")
     .select("*")
-    .gte("task_date",monthStart)
-    .lte("task_date",monthEnd);
+    .gte("task_date",start)
+    .lte("task_date",end);
 
-  document.querySelectorAll(".tasks").forEach(t=>t.innerHTML="");
+  tasks=data||[];
+}
 
-  data.forEach(t=>{
-    const box = document.querySelector(`.tasks[data-date="${t.task_date}"]`);
-    if(!box) return;
+/* ===== RENDER ===== */
+async function render(){
+  await load();
+  title.textContent=`Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
+  calendar.innerHTML="";
 
-    const el = document.createElement("div");
-    el.className = `task person-${t.person}`+(t.done?" done":"");
-    el.innerHTML = `
-      ${t.title}<br><small>${t.person} • ${t.task_type}</small>
-      <span class="del">✕</span>
-    `;
+  const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
+  const offset=(new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
 
-    el.querySelector(".del").onclick = async(e)=>{
-      e.stopPropagation();
-      await supabaseClient.from("tasks").delete().eq("id",t.id);
-      loadTasks();
-    };
+  for(let i=0;i<offset;i++) calendar.appendChild(document.createElement("div"));
 
-    el.onclick = async()=>{
-      await supabaseClient.from("tasks")
-        .update({done:!t.done})
-        .eq("id",t.id);
-      loadTasks();
-    };
+  for(let d=1;d<=days;d++){
+    const date=`${current.getFullYear()}-${String(current.getMonth()+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const box=document.createElement("div");
+    box.className="day";
+    box.ondragover=e=>e.preventDefault();
+    box.ondrop=()=>drop(date);
+    box.innerHTML=`<div class="day-number">${d}</div>`;
 
-    box.appendChild(el);
+    tasks.filter(t=>t.task_date===date).forEach(t=>{
+      const el=document.createElement("div");
+      el.className="task"+(t.done?" done":"");
+      el.style.background=PEOPLE[t.person];
+      el.draggable=true;
+      el.ondragstart=()=>dragTask=t;
+      el.onclick=()=>toggleDone(t);
+
+      el.innerHTML=`
+        <span class="delete" onclick="event.stopPropagation();removeTask('${t.id}')">✖</span>
+        <strong>${t.text}</strong>
+        <div class="task-type">${t.person} • ${t.type}</div>
+      `;
+      box.appendChild(el);
+    });
+
+    const add=document.createElement("div");
+    add.className="add";
+    add.textContent="+ Add task";
+    add.onclick=()=>openModal(date);
+    box.appendChild(add);
+
+    calendar.appendChild(box);
+  }
+  renderStats();
+}
+
+/* ===== CRUD ===== */
+async function saveTask(){
+  if(!taskText.value.trim())return;
+  await supabaseClient.from("tasks").insert({
+    task_date:selectedDay,
+    text:taskText.value,
+    person:taskPerson.value,
+    type:taskType.value
   });
+  modal.style.display="none"; taskText.value="";
+  render();
+}
+async function toggleDone(t){
+  await supabaseClient.from("tasks")
+    .update({done:!t.done}).eq("id",t.id);
+  render();
+}
+async function removeTask(id){
+  await supabaseClient.from("tasks").delete().eq("id",id);
+  render();
+}
+async function drop(date){
+  if(!dragTask)return;
+  await supabaseClient.from("tasks")
+    .update({task_date:date}).eq("id",dragTask.id);
+  dragTask=null; render();
 }
 
-/* ===== CHANGE MONTH ===== */
-function changeMonth(n){
-  current.setMonth(current.getMonth()+n);
-  renderCalendar();
+/* ===== UI ===== */
+function openModal(d){selectedDay=d;modal.style.display="flex"}
+function closeModal(e){if(e.target.id==="modal")modal.style.display="none"}
+function changeMonth(n){current.setMonth(current.getMonth()+n);render()}
+function toggleStats(){stats.style.display=stats.style.display==="block"?"none":"block"}
+
+function renderStats(){
+  let done=tasks.filter(t=>t.done).length;
+  let html=`<h4>Tổng quan</h4>Tổng:${tasks.length}<br>Done:${done}<br>Pending:${tasks.length-done}`;
+  html+=`<h4>Person</h4>`;
+  Object.keys(PEOPLE).forEach(p=>{
+    html+=`${p}: ${tasks.filter(t=>t.person===p).length}<br>`;
+  });
+  html+=`<h4>Task Type</h4>`;
+  TYPES.forEach(t=>{
+    html+=`${t}: ${tasks.filter(x=>x.type===t).length}<br>`;
+  });
+  stats.innerHTML=html;
 }
 
-renderCalendar();
+/* ===== INIT ===== */
+Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
+TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
+render();
 </script>
 
 </body>
