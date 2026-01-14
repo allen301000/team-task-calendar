@@ -11,7 +11,6 @@
       margin: 0;
       background: #f5f6f8;
     }
-
     header {
       display: flex;
       justify-content: space-between;
@@ -20,18 +19,13 @@
       background: #fff;
       border-bottom: 1px solid #ddd;
     }
-
-    button {
-      cursor: pointer;
-    }
-
+    button { cursor: pointer; }
     .calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
       gap: 8px;
       padding: 16px;
     }
-
     .day {
       background: #fff;
       border-radius: 8px;
@@ -40,18 +34,15 @@
       display: flex;
       flex-direction: column;
     }
-
     .day-header {
       font-size: 12px;
       color: #666;
       margin-bottom: 4px;
     }
-
     .date {
       font-weight: bold;
       margin-bottom: 4px;
     }
-
     .task {
       background: #e9eefc;
       border-radius: 6px;
@@ -62,19 +53,15 @@
       justify-content: space-between;
       align-items: center;
     }
-
     .task.done {
       background: #d6f5e3;
       text-decoration: line-through;
     }
-
     .task span.remove {
       color: red;
       cursor: pointer;
       font-weight: bold;
     }
-
-    /* Modal */
     .modal {
       position: fixed;
       inset: 0;
@@ -83,11 +70,7 @@
       align-items: center;
       justify-content: center;
     }
-
-    .modal.active {
-      display: flex;
-    }
-
+    .modal.active { display: flex; }
     .modal-content {
       background: #fff;
       padding: 16px;
@@ -97,10 +80,7 @@
       flex-direction: column;
       gap: 8px;
     }
-
-    select, input {
-      padding: 6px;
-    }
+    select, input { padding: 6px; }
   </style>
 </head>
 
@@ -116,174 +96,124 @@
 
 <button id="openModal" style="margin:16px;">+ Add Task</button>
 
-<!-- MODAL -->
 <div class="modal" id="modal">
   <div class="modal-content">
     <h3>Add Task</h3>
-
     <input id="taskText" placeholder="Task..." />
-
     <input id="taskDate" type="date" />
-
     <select id="taskPerson">
-      <option>Tony</option>
-      <option>Allen</option>
-      <option>Davis</option>
-      <option>Alex</option>
-      <option>Lucas</option>
-      <option>Hayden</option>
-      <option>Leo</option>
-      <option>Dante</option>
+      <option>Tony</option><option>Allen</option><option>Davis</option>
+      <option>Alex</option><option>Lucas</option>
+      <option>Hayden</option><option>Leo</option><option>Dante</option>
     </select>
-
     <select id="taskType">
-      <option>Design + QR</option>
-      <option>Design</option>
-      <option>Menu + QR</option>
-      <option>Menu</option>
-      <option>QR</option>
+      <option>Design + QR</option><option>Design</option>
+      <option>Menu + QR</option><option>Menu</option><option>QR</option>
     </select>
-
     <button id="saveTask">Save</button>
     <button id="closeModal">Cancel</button>
   </div>
 </div>
 
 <script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-  /* ================= CONFIG ================= */
-  const SUPABASE_URL = "https://letbykkygmmdxbmnemam.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+/* ===== SUPABASE ===== */
+const supabase = createClient(
+  "https://letbykkygmmdxbmnemam.supabase.co",
+  "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
+);
 
-  /* ================= STATE ================= */
-  let current = new Date();
-  let tasks = [];
+/* ===== STATE ===== */
+let current = new Date();
+let tasks = [];
 
-  /* ================= ELEMENTS ================= */
-  const calendar = document.getElementById("calendar");
-  const monthLabel = document.getElementById("monthLabel");
+/* ===== DOM ===== */
+const calendar = document.getElementById("calendar");
+const monthLabel = document.getElementById("monthLabel");
+const modal = document.getElementById("modal");
 
-  const modal = document.getElementById("modal");
-  const openModalBtn = document.getElementById("openModal");
-  const closeModalBtn = document.getElementById("closeModal");
-  const saveTaskBtn = document.getElementById("saveTask");
+/* ===== HELPERS ===== */
+const ymd = d => d.toISOString().slice(0, 10);
 
-  /* ================= HELPERS ================= */
-  function ymd(date) {
-    return date.toISOString().slice(0,10);
-  }
+/* ===== LOAD ===== */
+async function loadTasks() {
+  const start = new Date(current.getFullYear(), current.getMonth(), 1);
+  const end = new Date(current.getFullYear(), current.getMonth() + 1, 0);
 
-  /* ================= LOAD TASKS ================= */
-  async function loadTasks() {
-    const start = new Date(current.getFullYear(), current.getMonth(), 1);
-    const end = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .gte("task_date", ymd(start))
+    .lte("task_date", ymd(end))
+    .order("task_date");
 
-    const { data } = await supabase
-      .from("tasks")
-      .select("*")
-      .gte("task_date", ymd(start))
-      .lte("task_date", ymd(end));
+  if (!error) tasks = data || [];
+}
 
-    tasks = data || [];
-  }
+/* ===== RENDER ===== */
+async function render() {
+  await loadTasks();
 
-  /* ================= RENDER ================= */
-  async function render() {
-    await loadTasks();
+  calendar.innerHTML = "";
+  monthLabel.textContent =
+    current.toLocaleString("vi", { month: "long", year: "numeric" });
 
-    calendar.innerHTML = "";
-    monthLabel.textContent =
-      current.toLocaleString("vi", { month: "long", year: "numeric" });
+  const days = new Date(
+    current.getFullYear(),
+    current.getMonth() + 1,
+    0
+  ).getDate();
 
-    const days = new Date(
-      current.getFullYear(),
-      current.getMonth() + 1,
-      0
-    ).getDate();
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(current.getFullYear(), current.getMonth(), d);
+    const key = ymd(date);
 
-    for (let d = 1; d <= days; d++) {
-      const date = new Date(current.getFullYear(), current.getMonth(), d);
-      const key = ymd(date);
+    const box = document.createElement("div");
+    box.className = "day";
+    box.innerHTML = `
+      <div class="day-header">${date.toLocaleDateString("vi", { weekday: "short" })}</div>
+      <div class="date">${d}</div>
+    `;
 
-      const box = document.createElement("div");
-      box.className = "day";
+    tasks.filter(t => t.task_date === key).forEach(t => {
+      const el = document.createElement("div");
+      el.className = "task" + (t.done ? " done" : "");
+      el.innerHTML = `<span>${t.text}</span><span class="remove">×</span>`;
 
-      box.innerHTML = `
-        <div class="day-header">${date.toLocaleDateString("vi", { weekday: "short" })}</div>
-        <div class="date">${d}</div>
-      `;
+      el.querySelector(".remove").onclick = e => {
+        e.stopPropagation();
+        supabase.from("tasks").delete().eq("id", t.id);
+      };
 
-      tasks
-        .filter(t => t.task_date === key)
-        .forEach(t => {
-          const el = document.createElement("div");
-          el.className = "task" + (t.done ? " done" : "");
-          el.innerHTML = `
-            <span>${t.text}</span>
-            <span class="remove">×</span>
-          `;
+      el.ondblclick = () =>
+        supabase.from("tasks").update({ done: !t.done }).eq("id", t.id);
 
-          el.querySelector(".remove").addEventListener("click", async () => {
-            await supabase.from("tasks").delete().eq("id", t.id);
-          });
-
-          el.addEventListener("dblclick", async () => {
-            await supabase.from("tasks")
-              .update({ done: !t.done })
-              .eq("id", t.id);
-          });
-
-          box.appendChild(el);
-        });
-
-      calendar.appendChild(box);
-    }
-  }
-
-  /* ================= EVENTS ================= */
-  document.getElementById("prevMonth").addEventListener("click", () => {
-    current.setMonth(current.getMonth() - 1);
-    render();
-  });
-
-  document.getElementById("nextMonth").addEventListener("click", () => {
-    current.setMonth(current.getMonth() + 1);
-    render();
-  });
-
-  openModalBtn.addEventListener("click", () => modal.classList.add("active"));
-  closeModalBtn.addEventListener("click", () => modal.classList.remove("active"));
-
-  saveTaskBtn.addEventListener("click", async () => {
-    const text = taskText.value.trim();
-    if (!text) return;
-
-    await supabase.from("tasks").insert({
-      text,
-      task_date: taskDate.value,
-      person: taskPerson.value,
-      type: taskType.value,
-      done: false
+      box.appendChild(el);
     });
 
-    modal.classList.remove("active");
-    taskText.value = "";
-  });
+    calendar.appendChild(box);
+  }
+}
 
-  /* ================= REALTIME ================= */
-  supabase
-    .channel("tasks-realtime")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "tasks" },
-      () => render()
-    )
-    .subscribe();
-
+/* ===== EVENTS ===== */
+document.getElementById("prevMonth").onclick = () => {
+  current.setMonth(current.getMonth() - 1);
   render();
-</script>
+};
 
-</body>
-</html>
+document.getElementById("nextMonth").onclick = () => {
+  current.setMonth(current.getMonth() + 1);
+  render();
+};
+
+document.getElementById("openModal").onclick = () => {
+  modal.classList.add("active");
+  taskDate.value = ymd(new Date());
+};
+
+document.getElementById("closeModal").onclick = () =>
+  modal.classList.remove("active");
+
+document.getElementById("saveTask").onclick = async () => {
+  if (!taskText.
