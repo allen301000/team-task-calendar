@@ -87,10 +87,9 @@ function formatDate(y,m,d){
 async function load(){
   const y=current.getFullYear();
   const m=current.getMonth();
-  const lastDay=new Date(y,m+1,0).getDate();
 
   const start=formatDate(y,m,1);
-  const end=formatDate(y,m,lastDay);
+  const end=formatDate(y,m+1,0);
 
   const {data,error}=await supabaseClient
     .from("tasks")
@@ -101,8 +100,8 @@ async function load(){
   if(error){console.error(error);return;}
 
   cache={};
-  (data||[]).forEach(t=>{
-    const day=Number(t.task_date.slice(8,10)); // 🔥 FIX TIMEZONE
+  data.forEach(t=>{
+    const day=Number(t.task_date.slice(8,10));
     (cache[day]??=[]).push(t);
   });
 }
@@ -165,9 +164,9 @@ async function saveTask(){
   const m=current.getMonth();
   const date=formatDate(y,m,selectedDay);
 
+  const tempId="tmp-"+Date.now();
   const optimistic={
-    id:"tmp-"+Date.now(),
-    task_date:date,
+    id:tempId,task_date:date,
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
@@ -177,37 +176,43 @@ async function saveTask(){
   (cache[selectedDay]??=[]).push(optimistic);
   render();
 
-  await supabaseClient.from("tasks").insert(optimistic);
+  const {data,error}=await supabaseClient
+    .from("tasks")
+    .insert({
+      task_date:date,
+      text:optimistic.text,
+      person:optimistic.person,
+      type:optimistic.type,
+      done:false
+    })
+    .select()
+    .single();
+
+  if(error){
+    cache[selectedDay]=cache[selectedDay].filter(t=>t.id!==tempId);
+    render();
+    return;
+  }
+
+  cache[selectedDay]=cache[selectedDay].map(t=>t.id===tempId?data:t);
   closeModal();
+  render();
 }
 
 async function toggleDone(t){
-  t.done=!t.done;
-  render();
-  await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
+  await supabaseClient.from("tasks")
+    .update({done:!t.done}).eq("id",t.id);
 }
 
 async function removeTask(id){
-  Object.keys(cache).forEach(d=>{
-    cache[d]=cache[d].filter(t=>t.id!==id);
-  });
-  render();
   await supabaseClient.from("tasks").delete().eq("id",id);
 }
 
 async function dropTask(day){
   if(!dragTask)return;
-  const oldDay=Number(dragTask.task_date.slice(8,10));
-  cache[oldDay]=cache[oldDay].filter(t=>t!==dragTask);
-
-  dragTask.task_date=formatDate(current.getFullYear(),current.getMonth(),day);
-  (cache[day]??=[]).push(dragTask);
-  render();
-
-  await supabaseClient.from("tasks")
-    .update({task_date:dragTask.task_date})
-    .eq("id",dragTask.id);
-
+  await supabaseClient.from("tasks").update({
+    task_date:formatDate(current.getFullYear(),current.getMonth(),day)
+  }).eq("id",dragTask.id);
   dragTask=null;
 }
 
@@ -235,8 +240,7 @@ function renderStats(){
 }
 
 /* ================= REALTIME ================= */
-supabaseClient
-  .channel("tasks-rt")
+supabaseClient.channel("tasks-rt")
   .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},()=>render())
   .subscribe();
 
@@ -248,4 +252,3 @@ render();
 
 </body>
 </html>
-
