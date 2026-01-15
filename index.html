@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <title>Team Task Calendar</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <style>
 body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
 header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
@@ -59,7 +57,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 <div class="stats-toggle" onclick="toggleStats()">📊 Stats</div>
 <div class="stats" id="stats"></div>
 
-<script>
+<script type="module">
 /* ================= SUPABASE ================= */
 const supabaseClient = supabase.createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
@@ -241,3 +239,4 @@ render();
 
 </body>
 </html>
+
