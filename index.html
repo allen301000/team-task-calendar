@@ -17,18 +17,46 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 .day{border:1px solid #24262b;padding:6px;font-size:12px}
 .day-number{opacity:.6;margin-bottom:4px}
 
-.task{position:relative;padding:6px;border-radius:6px;margin-bottom:4px;cursor:grab;color:#000}
+.task{
+  position:relative;
+  padding:6px;
+  border-radius:6px;
+  margin-bottom:4px;
+  cursor:grab;
+  color:#000;
+}
 .task.done{background:#2e7d32!important;color:#fff}
 .task.done::after{
   content:"Completed";
   position:absolute;
-  top:2px;right:6px;
-  font-size:9px;opacity:.8;
+  top:2px;
+  right:6px;
+  font-size:9px;
+  opacity:.8;
 }
 
 .task-type{font-size:10px;opacity:.8}
-.delete{position:absolute;bottom:2px;right:6px;font-size:12px;cursor:pointer;opacity:0}
-.task:hover .delete{opacity:1}
+
+.delete{
+  position:absolute;
+  bottom:2px;
+  right:6px;
+  font-size:12px;
+  cursor:pointer;
+  opacity:0;
+}
+
+.copy-btn{
+  position:absolute;
+  bottom:2px;
+  left:6px;
+  font-size:12px;
+  cursor:pointer;
+  opacity:0;
+}
+
+.task:hover .delete,
+.task:hover .copy-btn{opacity:1}
 
 .add{opacity:.5;cursor:pointer;font-size:11px}
 .add:hover{opacity:1}
@@ -38,21 +66,29 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 .modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px}
 .modal-box button{width:100%}
 
-.filter-bar{
-  display:flex;
-  gap:8px;
-  padding:8px 16px;
-}
-.filter-bar select{
-  background:#1f2228;
-  color:#fff;
-  border:none;
-  padding:6px;
-}
+.filter-bar{display:flex;gap:8px;padding:8px 16px}
+.filter-bar select{background:#1f2228;color:#fff;border:none;padding:6px}
 
 .stats-toggle{position:fixed;bottom:10px;right:10px;background:#1f2228;padding:6px 10px;cursor:pointer}
 .stats{position:fixed;bottom:50px;right:10px;background:#1b1d22;padding:12px;border-radius:8px;display:none;font-size:12px;width:220px}
 .stats h4{margin:6px 0 4px;font-size:12px;border-bottom:1px solid #333}
+
+/* ===== TOAST ===== */
+.toast{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#2e7d32;
+  color:#fff;
+  padding:8px 14px;
+  border-radius:6px;
+  font-size:12px;
+  opacity:0;
+  pointer-events:none;
+  transition:.25s ease;
+}
+.toast.show{opacity:1}
 </style>
 </head>
 
@@ -88,6 +124,8 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 <div class="stats-toggle" onclick="toggleStats()">📊 Stats</div>
 <div class="stats" id="stats"></div>
+
+<div class="toast" id="toast">Copied!</div>
 
 <script>
 /* ================= SUPABASE ================= */
@@ -163,13 +201,25 @@ function renderCalendarOnly(){
         task.ondragstart=()=>dragTask=t;
         task.onclick=()=>toggleDone(t);
 
+        const copy=document.createElement("span");
+        copy.className="copy-btn";
+        copy.textContent="📋";
+        copy.onclick=e=>{
+          e.stopPropagation();
+          copyTask(t.text);
+        };
+
         const del=document.createElement("span");
         del.className="delete";
         del.textContent="✖";
-        del.onclick=e=>{e.stopPropagation();removeTask(t.id);};
+        del.onclick=e=>{
+          e.stopPropagation();
+          removeTask(t.id);
+        };
 
         task.innerHTML=`<strong>${t.text}</strong>
           <div class="task-type">${t.person} • ${t.type}</div>`;
+        task.appendChild(copy);
         task.appendChild(del);
         el.appendChild(task);
       });
@@ -250,6 +300,16 @@ function renderStats(){
   stats.innerHTML=`<h4>Total</h4>Total: ${all.length}<br>Done: ${done}<br>Pending: ${all.length-done}`;
 }
 
+/* ================= COPY + TOAST ================= */
+let toastTimer;
+function copyTask(text){
+  navigator.clipboard.writeText(text);
+  const t=document.getElementById("toast");
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"),1200);
+}
+
 /* ================= REALTIME ================= */
 supabaseClient
   .channel("tasks-rt")
@@ -273,4 +333,3 @@ render();
 
 </body>
 </html>
-
