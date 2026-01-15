@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>Team Task Calendar</title>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
+/* ==== GIỮ NGUYÊN CSS CỦA BẠN ==== */
 body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
 header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
 header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
@@ -79,15 +79,17 @@ let selectedDay=null;
 let dragTask=null;
 let cache={};
 
-/* ================= DATE SAFE (NO TZ BUG) ================= */
-function buildDate(y,m,d){
-  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+/* ================= DATE ================= */
+function formatDate(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-/* ================= LOAD ================= */
-async function load(){
-  const start=buildDate(current.getFullYear(),current.getMonth(),1);
-  const end=buildDate(current.getFullYear(),current.getMonth()+1,0);
+/* ================= LOAD DB ================= */
+async function loadFromDB(){
+  const y=current.getFullYear();
+  const m=current.getMonth();
+  const start=formatDate(new Date(y,m,1));
+  const end=formatDate(new Date(y,m+1,0));
 
   const {data}=await supabaseClient
     .from("tasks")
@@ -97,14 +99,15 @@ async function load(){
 
   cache={};
   (data||[]).forEach(t=>{
-    const day=Number(t.task_date.slice(8,10));
-    (cache[day]??=[]).push(t);
+    const d=Number(t.task_date.slice(8,10));
+    (cache[d]??=[]).push(t);
   });
+
+  render();
 }
 
 /* ================= RENDER ================= */
-async function render(){
-  await load();
+function render(){
   const cal=document.getElementById("calendar");
   cal.innerHTML="";
   title.textContent=`Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
@@ -132,7 +135,7 @@ async function render(){
       const del=document.createElement("span");
       del.className="delete";
       del.textContent="✖";
-      del.onclick=e=>{e.stopPropagation();removeTask(t.id);};
+      del.onclick=e=>{e.stopPropagation();removeTask(t);};
 
       task.innerHTML=`<strong>${t.text}</strong>
         <div class="task-type">${t.person} • ${t.type}</div>`;
@@ -148,110 +151,80 @@ async function render(){
 
     cal.appendChild(el);
   }
+
   renderStats();
 }
 
-/* ================= OPTIMISTIC ADD ================= */
+/* ================= ACTIONS (OPTIMISTIC) ================= */
 async function saveTask(){
   if(!selectedDay||!taskText.value.trim())return;
 
   const tempId="tmp_"+Date.now();
-  const newTask={
+  const task={
     id:tempId,
-    task_date:buildDate(current.getFullYear(),current.getMonth(),selectedDay),
+    task_date:formatDate(new Date(current.getFullYear(),current.getMonth(),selectedDay)),
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
     done:false
   };
 
-  (cache[selectedDay]??=[]).push(newTask);
+  (cache[selectedDay]??=[]).push(task);
   render();
   closeModal();
 
-  const {data,error}=await supabaseClient
-    .from("tasks")
-    .insert(newTask)
-    .select()
-    .single();
-
-  if(error){
-    cache[selectedDay]=cache[selectedDay].filter(t=>t.id!==tempId);
-    render();
-    alert(error.message);
-    return;
+  const {data}=await supabaseClient.from("tasks").insert(task).select().single();
+  if(data){
+    const i=cache[selectedDay].findIndex(t=>t.id===tempId);
+    if(i>-1) cache[selectedDay][i]=data;
   }
-
-  const i=cache[selectedDay].findIndex(t=>t.id===tempId);
-  if(i!==-1) cache[selectedDay][i]=data;
 }
 
-/* ================= OPTIMISTIC DELETE ================= */
-async function removeTask(id){
-  Object.keys(cache).forEach(d=>{
-    cache[d]=cache[d].filter(t=>t.id!==id);
-  });
+async function removeTask(t){
+  cache[t.task_date.slice(8,10)]=cache[t.task_date.slice(8,10)].filter(x=>x!==t);
   render();
-
-  await supabaseClient.from("tasks").delete().eq("id",id);
+  await supabaseClient.from("tasks").delete().eq("id",t.id);
 }
 
-/* ================= DRAG ================= */
-async function dropTask(day){
-  if(!dragTask)return;
-
-  Object.keys(cache).forEach(d=>{
-    cache[d]=cache[d].filter(t=>t.id!==dragTask.id);
-  });
-  (cache[day]??=[]).push({...dragTask,task_date:buildDate(current.getFullYear(),current.getMonth(),day)});
-  render();
-
-  await supabaseClient.from("tasks")
-    .update({task_date:buildDate(current.getFullYear(),current.getMonth(),day)})
-    .eq("id",dragTask.id);
-
-  dragTask=null;
-}
-
-/* ================= OTHERS ================= */
 async function toggleDone(t){
   t.done=!t.done;
   render();
   await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
 }
 
+async function dropTask(day){
+  if(!dragTask)return;
+  const oldDay=Number(dragTask.task_date.slice(8,10));
+  cache[oldDay]=cache[oldDay].filter(t=>t!==dragTask);
+  dragTask.task_date=formatDate(new Date(current.getFullYear(),current.getMonth(),day));
+  (cache[day]??=[]).push(dragTask);
+  render();
+  await supabaseClient.from("tasks").update({task_date:dragTask.task_date}).eq("id",dragTask.id);
+  dragTask=null;
+}
+
+/* ================= UI ================= */
 function openModal(d){selectedDay=d;modal.style.display="flex";}
 function closeModal(e){if(!e||e.target===modal)modal.style.display="none";}
-function changeMonth(n){current.setMonth(current.getMonth()+n);render();}
+function changeMonth(n){current.setMonth(current.getMonth()+n);loadFromDB();}
 function toggleStats(){stats.style.display=stats.style.display==="block"?"none":"block";}
 
 /* ================= STATS ================= */
 function renderStats(){
   let all=[],done=0;
   Object.values(cache).forEach(a=>a.forEach(t=>{all.push(t);if(t.done)done++;}));
-
-  let html=`<h4>Tổng quan</h4>
-  Tổng: ${all.length}<br>Done: ${done}<br>Pending: ${all.length-done}`;
-
-  html+=`<h4>Person</h4>`;
-  Object.keys(PEOPLE).forEach(p=>html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`);
-
-  html+=`<h4>Task Type</h4>`;
-  TYPES.forEach(t=>html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`);
-
-  stats.innerHTML=html;
+  stats.innerHTML=`<h4>Tổng</h4>${all.length} | Done ${done}`;
 }
 
 /* ================= REALTIME (SYNC ONLY) ================= */
-supabaseClient
-  .channel("tasks-rt")
-  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},()=>render())
+supabaseClient.channel("tasks-rt")
+  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},loadFromDB)
   .subscribe();
 
 /* ================= INIT ================= */
 Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
-render();
+loadFromDB();
 </script>
 
 </body>
