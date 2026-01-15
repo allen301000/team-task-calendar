@@ -59,11 +59,10 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 <script>
 /* ================= SUPABASE ================= */
-const supabaseClient = window.supabase.createClient(
+const supabaseClient = supabase.createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
   "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
 );
-
 
 /* ================= CONFIG ================= */
 const PEOPLE={
@@ -78,21 +77,26 @@ let selectedDay=null;
 let dragTask=null;
 let cache={};
 
-/* ================= HELPERS ================= */
-function buildDate(y,m,d){
-  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+/* ================= DATE HELPERS ================= */
+function formatDate(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 /* ================= LOAD ================= */
 async function load(){
-  const start=buildDate(current.getFullYear(),current.getMonth(),1);
-  const end=buildDate(current.getFullYear(),current.getMonth()+1,0);
+  const y=current.getFullYear();
+  const m=current.getMonth();
 
-  const {data}=await supabaseClient
+  const start=formatDate(new Date(y,m,1));
+  const end=formatDate(new Date(y,m+1,0));
+
+  const {data,error}=await supabaseClient
     .from("tasks")
     .select("*")
     .gte("task_date",start)
     .lte("task_date",end);
+
+  if(error){console.error(error);return;}
 
   cache={};
   (data||[]).forEach(t=>{
@@ -157,11 +161,11 @@ async function saveTask(){
   if(!selectedDay||!taskText.value.trim())return;
 
   await supabaseClient.from("tasks").insert({
-    task_date:buildDate(
+    task_date:formatDate(new Date(
       current.getFullYear(),
       current.getMonth(),
       selectedDay
-    ),
+    )),
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
@@ -183,11 +187,11 @@ async function removeTask(id){
 async function dropTask(day){
   if(!dragTask)return;
   await supabaseClient.from("tasks").update({
-    task_date:buildDate(
+    task_date:formatDate(new Date(
       current.getFullYear(),
       current.getMonth(),
       day
-    )
+    ))
   }).eq("id",dragTask.id);
   dragTask=null;
 }
@@ -240,4 +244,3 @@ render();
 
 </body>
 </html>
-
