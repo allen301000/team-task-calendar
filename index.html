@@ -60,27 +60,26 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-/* ===== SUPABASE ===== */
+/* ================= SUPABASE ================= */
 const supabase = createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
   "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
 );
 
-/* ===== CONFIG ===== */
+/* ================= CONFIG ================= */
 const PEOPLE = {
   Tony:"#ff8a80", Allen:"#90caf9", Davis:"#b39ddb", Alex:"#ffe082",
   Lucas:"#b0bec5", Hayden:"#f48fb1", Leo:"#ce93d8", Dante:"#a5d6a7"
 };
 const TYPES = ["Design + QR","Design","Menu + QR","Menu","QR"];
 
-/* ===== STATE ===== */
+/* ================= STATE ================= */
 let current = new Date();
 let selectedDay = null;
 let dragTask = null;
 let cache = {};
-let lastHash = "";
 
-/* ===== DOM ===== */
+/* ================= DOM ================= */
 const calendar = document.getElementById("calendar");
 const modal = document.getElementById("modal");
 const title = document.getElementById("title");
@@ -89,14 +88,15 @@ const taskText = document.getElementById("taskText");
 const taskPerson = document.getElementById("taskPerson");
 const taskType = document.getElementById("taskType");
 
-/* ===== DATE UTILS (FIX TIMEZONE) ===== */
-function localDate(y,m,d){
-  const mm = String(m+1).padStart(2,'0');
-  const dd = String(d).padStart(2,'0');
-  return `${y}-${mm}-${dd}`;
+/* ================= DATE HELPER ================= */
+function formatDate(date){
+  const y = date.getFullYear();
+  const m = String(date.getMonth()+1).padStart(2,"0");
+  const d = String(date.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
 }
 
-/* ===== STATS ===== */
+/* ================= STATS ================= */
 function renderStats(){
   let all=[], done=0;
   Object.values(cache).forEach(a =>
@@ -121,35 +121,32 @@ function renderStats(){
   stats.innerHTML = html;
 }
 
-/* ===== LOAD ===== */
+/* ================= LOAD ================= */
 async function load(){
-  const start = localDate(current.getFullYear(), current.getMonth(), 1);
-  const end = localDate(current.getFullYear(), current.getMonth()+1, 0);
+  const start = formatDate(new Date(current.getFullYear(), current.getMonth(), 1));
+  const end   = formatDate(new Date(current.getFullYear(), current.getMonth()+1, 0));
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("tasks")
     .select("*")
     .gte("task_date", start)
     .lte("task_date", end);
 
-  const hash = JSON.stringify(data);
-  if(hash === lastHash) return false;
-  lastHash = hash;
+  if(error){
+    console.error(error);
+    return;
+  }
 
   cache = {};
-  (data || []).forEach(t=>{
+  (data||[]).forEach(t=>{
     const d = Number(t.task_date.slice(8,10));
     (cache[d] ??= []).push(t);
   });
-
-  return true;
 }
 
-/* ===== RENDER ===== */
-async function render(force=false){
-  const changed = await load();
-  if(!changed && !force) return;
-
+/* ================= RENDER ================= */
+async function render(){
+  await load();
   title.textContent = `Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
   calendar.innerHTML = "";
 
@@ -160,35 +157,38 @@ async function render(force=false){
 
   for(let day=1; day<=days; day++){
     const d = document.createElement("div");
-    d.className = "day";
-    d.innerHTML = `<div class="day-number">${day}</div>`;
-    d.ondragover = e=>e.preventDefault();
-    d.ondrop = ()=>drop(day);
+    d.className="day";
+    d.innerHTML=`<div class="day-number">${day}</div>`;
+    d.ondragover=e=>e.preventDefault();
+    d.ondrop=()=>drop(day);
 
     (cache[day]||[]).forEach(t=>{
-      const el = document.createElement("div");
-      el.className = "task"+(t.done?" done":"");
-      el.style.background = PEOPLE[t.person];
-      el.draggable = true;
+      const el=document.createElement("div");
+      el.className="task"+(t.done?" done":"");
+      el.style.background=PEOPLE[t.person];
+      el.draggable=true;
 
       el.addEventListener("dragstart",()=>dragTask=t);
       el.addEventListener("click",()=>toggleDone(t));
 
-      const del = document.createElement("span");
-      del.className = "delete";
-      del.textContent = "✖";
-      del.onclick = e => { e.stopPropagation(); removeTask(t.id); };
+      const del=document.createElement("span");
+      del.className="delete";
+      del.textContent="✖";
+      del.onclick=e=>{
+        e.stopPropagation();
+        removeTask(t.id);
+      };
 
-      el.innerHTML = `<strong>${t.text}</strong>
+      el.innerHTML=`<strong>${t.text}</strong>
         <div class="task-type">${t.person} • ${t.type}</div>`;
       el.appendChild(del);
       d.appendChild(el);
     });
 
-    const add = document.createElement("div");
-    add.className = "add";
-    add.textContent = "+ Add task";
-    add.onclick = ()=>openModal(day);
+    const add=document.createElement("div");
+    add.className="add";
+    add.textContent="+ Add task";
+    add.onclick=()=>openModal(day);
     d.appendChild(add);
 
     calendar.appendChild(d);
@@ -197,14 +197,12 @@ async function render(force=false){
   renderStats();
 }
 
-/* ===== ACTIONS ===== */
+/* ================= ACTIONS ================= */
 async function saveTask(){
   if(!taskText.value.trim()) return;
 
-  const task_date = localDate(
-    current.getFullYear(),
-    current.getMonth(),
-    selectedDay
+  const task_date = formatDate(
+    new Date(current.getFullYear(), current.getMonth(), selectedDay)
   );
 
   await supabase.from("tasks").insert({
@@ -216,47 +214,47 @@ async function saveTask(){
   });
 
   closeModal();
-  render(true);
+  render();
 }
 
 async function toggleDone(t){
   await supabase.from("tasks").update({done:!t.done}).eq("id",t.id);
-  render(true);
+  render();
 }
 async function removeTask(id){
   await supabase.from("tasks").delete().eq("id",id);
-  render(true);
+  render();
 }
 async function drop(day){
   if(!dragTask) return;
-  const task_date = localDate(current.getFullYear(), current.getMonth(), day);
+  const task_date = formatDate(
+    new Date(current.getFullYear(), current.getMonth(), day)
+  );
   await supabase.from("tasks").update({task_date}).eq("id",dragTask.id);
   dragTask=null;
-  render(true);
+  render();
 }
 
-/* ===== UI ===== */
+/* ================= UI ================= */
 function openModal(day){ selectedDay=day; modal.style.display="flex"; }
 function closeModal(){ modal.style.display="none"; taskText.value=""; }
-function toggleStats(){ stats.style.display = stats.style.display==="block"?"none":"block"; }
+function toggleStats(){ stats.style.display=stats.style.display==="block"?"none":"block"; }
 
-/* ===== EVENTS ===== */
-prevMonth.onclick = ()=>{ current.setMonth(current.getMonth()-1); render(true); };
-nextMonth.onclick = ()=>{ current.setMonth(current.getMonth()+1); render(true); };
-saveTask.onclick = saveTask;
-statsToggle.onclick = toggleStats;
-modal.onclick = e=>{ if(e.target===modal) closeModal(); };
+/* ================= EVENTS ================= */
+prevMonth.onclick=()=>{current.setMonth(current.getMonth()-1);render()};
+nextMonth.onclick=()=>{current.setMonth(current.getMonth()+1);render()};
+saveTask.onclick=saveTask;
+statsToggle.onclick=toggleStats;
+modal.onclick=e=>{if(e.target===modal)closeModal()};
 
-/* ===== POLLING REALTIME (FREE) ===== */
-setInterval(()=>render(), 3000);
+/* ================= POLLING (FREE REALTIME) ================= */
+setInterval(render, 15000);
 
-/* ===== INIT ===== */
+/* ================= INIT ================= */
 Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
-render(true);
+render();
 </script>
-
 
 </body>
 </html>
-
