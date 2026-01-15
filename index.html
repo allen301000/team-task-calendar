@@ -7,70 +7,15 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont;
-  background: #f4f6f8;
-  padding: 20px;
-}
-h2 { margin-bottom: 10px; }
-
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-}
-
-.day {
-  background: #fff;
-  min-height: 120px;
-  padding: 6px;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 1px solid #ddd;
-}
-
-.day strong {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.task {
-  background: #e3edff;
-  margin-top: 4px;
-  padding: 4px 6px;
-  font-size: 12px;
-  border-radius: 4px;
-}
-
-/* Modal */
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.45);
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-content {
-  background: #fff;
-  padding: 16px;
-  width: 320px;
-  border-radius: 8px;
-}
-
-.modal-content input {
-  width: 100%;
-  margin-bottom: 8px;
-  padding: 6px;
-}
-
-.modal-content button {
-  padding: 6px 10px;
-}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui;background:#f4f6f8;padding:20px}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.day{background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px;min-height:120px;cursor:pointer}
+.day strong{display:block;margin-bottom:4px}
+.task{background:#e3edff;margin-top:4px;padding:4px 6px;border-radius:4px;font-size:12px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center}
+.modal-content{background:#fff;padding:16px;width:320px;border-radius:8px}
+.modal-content input{width:100%;margin-bottom:8px;padding:6px}
 </style>
 </head>
 
@@ -95,9 +40,10 @@ h2 { margin-bottom: 10px; }
 <script>
 /* ================= SUPABASE ================= */
 const SUPABASE_URL = "https://letbykkygmmdxbmnemam.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_PUBLIC_ANON_KEY";
+const SUPABASE_ANON_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
 
-const supabase = window.supabase.createClient(
+/* ⛔ KHÔNG DÙNG TÊN supabase */
+const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
@@ -113,57 +59,42 @@ let current = new Date();
 let selectedDay = null;
 
 /* ================= UTILS ================= */
-function formatDate(date) {
-  return date.toISOString().slice(0,10);
-}
-
-function daysInMonth(year, month) {
-  return new Date(year, month + 1, 0).getDate();
-}
+const fmt = d => d.toISOString().slice(0,10);
+const daysInMonth = (y,m)=>new Date(y,m+1,0).getDate();
 
 /* ================= RENDER ================= */
-async function renderCalendar() {
-  calendarEl.innerHTML = "";
+async function renderCalendar(){
+  calendarEl.innerHTML="";
 
-  const year = current.getFullYear();
-  const month = current.getMonth();
-
+  const y=current.getFullYear();
+  const m=current.getMonth();
   document.getElementById("monthLabel").textContent =
-    current.toLocaleString("vi", { month: "long", year: "numeric" });
+    current.toLocaleString("vi",{month:"long",year:"numeric"});
 
-  const startDate = formatDate(new Date(year, month, 1));
-  const endDate   = formatDate(new Date(year, month + 1, 0));
+  const start=fmt(new Date(y,m,1));
+  const end=fmt(new Date(y,m+1,0));
 
-  const { data: tasks, error } = await supabase
+  const { data } = await supabaseClient
     .from("tasks")
     .select("*")
-    .gte("task_date", startDate)
-    .lte("task_date", endDate);
+    .gte("task_date",start)
+    .lte("task_date",end);
 
-  if (error) {
-    console.error(error);
-    return;
-  }
+  const map={};
+  (data||[]).forEach(t=>(map[t.task_date]??=[]).push(t));
 
-  const taskMap = {};
-  tasks.forEach(t => {
-    if (!taskMap[t.task_date]) taskMap[t.task_date] = [];
-    taskMap[t.task_date].push(t);
-  });
+  for(let d=1;d<=daysInMonth(y,m);d++){
+    const date=fmt(new Date(y,m,d));
+    const cell=document.createElement("div");
+    cell.className="day";
+    cell.dataset.day=d;
+    cell.innerHTML=`<strong>${d}</strong>`;
 
-  for (let d = 1; d <= daysInMonth(year, month); d++) {
-    const dateStr = formatDate(new Date(year, month, d));
-
-    const cell = document.createElement("div");
-    cell.className = "day";
-    cell.dataset.day = d;
-    cell.innerHTML = `<strong>${d}</strong>`;
-
-    (taskMap[dateStr] || []).forEach(t => {
-      const div = document.createElement("div");
-      div.className = "task";
-      div.textContent = `${t.text} (${t.person})`;
-      cell.appendChild(div);
+    (map[date]||[]).forEach(t=>{
+      const el=document.createElement("div");
+      el.className="task";
+      el.textContent=`${t.text} (${t.person})`;
+      cell.appendChild(el);
     });
 
     calendarEl.appendChild(cell);
@@ -171,55 +102,35 @@ async function renderCalendar() {
 }
 
 /* ================= EVENTS ================= */
-calendarEl.addEventListener("click", e => {
-  const day = e.target.closest(".day");
-  if (!day) return;
+calendarEl.onclick=e=>{
+  const day=e.target.closest(".day");
+  if(!day)return;
+  selectedDay=Number(day.dataset.day);
+  modal.style.display="flex";
+};
 
-  selectedDay = Number(day.dataset.day);
-  modal.style.display = "flex";
-});
+closeModal.onclick=()=>modal.style.display="none";
+saveTask.onclick=async()=>{
+  if(!taskText.value||!selectedDay)return;
 
-document.getElementById("closeModal").addEventListener("click", () => {
-  modal.style.display = "none";
-});
+  await supabaseClient.from("tasks").insert({
+    task_date:fmt(new Date(current.getFullYear(),current.getMonth(),selectedDay)),
+    text:taskText.value,
+    person:taskPerson.value,
+    type:taskType.value
+  });
 
-document.getElementById("saveTask").addEventListener("click", saveTask);
+  modal.style.display="none";
+  taskText.value=taskPerson.value=taskType.value="";
+};
 
-/* ================= ADD TASK ================= */
-async function saveTask() {
-  if (!selectedDay || !taskText.value.trim()) return;
-
-  const taskDate = formatDate(
-    new Date(current.getFullYear(), current.getMonth(), selectedDay)
-  );
-
-  const { error } = await supabase
-    .from("tasks")
-    .insert({
-      task_date: taskDate,
-      text: taskText.value,
-      person: taskPerson.value,
-      type: taskType.value
-    });
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  modal.style.display = "none";
-  taskText.value = "";
-  taskPerson.value = "";
-  taskType.value = "";
-}
-
-/* ================= REALTIME (FREE) ================= */
-supabase
-  .channel("tasks-realtime")
+/* ================= REALTIME – FREE ================= */
+supabaseClient
+  .channel("tasks-live")
   .on(
     "postgres_changes",
-    { event: "*", schema: "public", table: "tasks" },
-    () => renderCalendar()
+    {event:"*",schema:"public",table:"tasks"},
+    renderCalendar
   )
   .subscribe();
 
