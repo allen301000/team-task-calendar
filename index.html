@@ -79,33 +79,33 @@ let selectedDay=null;
 let dragTask=null;
 let cache={};
 
-/* ================= DATE ================= */
-function formatDate(y,m,d){
-  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-}
-function getDayFromDate(dateStr){
-  return new Date(dateStr+"T00:00:00").getDate();
+/* ================= DATE HELPERS (FIX) ================= */
+function toDateString(d){
+  return d.toISOString().slice(0,10); // YYYY-MM-DD
 }
 
-/* ================= LOAD ================= */
+/* ================= LOAD (FIX DATE RANGE) ================= */
 async function load(){
   const y=current.getFullYear();
   const m=current.getMonth();
 
-  const start=formatDate(y,m,1);
-  const end=formatDate(y,m+1,0);
+  const start = toDateString(new Date(y, m, 1));
+  const end   = toDateString(new Date(y, m + 1, 0)); // last day
 
   const {data,error}=await supabaseClient
     .from("tasks")
     .select("*")
-    .gte("task_date",start)
-    .lte("task_date",end);
+    .gte("task_date", start)
+    .lte("task_date", end);
 
-  if(error){console.error(error);return;}
+  if(error){
+    console.error("LOAD ERROR:", error);
+    return;
+  }
 
   cache={};
   (data||[]).forEach(t=>{
-    const day=getDayFromDate(t.task_date);
+    const day=new Date(t.task_date).getDate();
     (cache[day]??=[]).push(t);
   });
 }
@@ -115,7 +115,8 @@ async function render(){
   await load();
   const cal=document.getElementById("calendar");
   cal.innerHTML="";
-  title.textContent=`Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
+  document.getElementById("title").textContent=
+    `Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
 
   const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
   const offset=(new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
@@ -160,85 +161,96 @@ async function render(){
   renderStats();
 }
 
-/* ================= ACTIONS ================= */
+/* ================= ACTIONS (FIX) ================= */
 async function saveTask(){
   if(!selectedDay||!taskText.value.trim())return;
 
   const task={
-    task_date:formatDate(current.getFullYear(),current.getMonth(),selectedDay),
+    task_date: toDateString(new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      selectedDay
+    )),
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
     done:false
   };
 
-  /* OPTIMISTIC UI */
-  const fakeId="tmp-"+Date.now();
-  (cache[selectedDay]??=[]).push({...task,id:fakeId});
-  renderStats();
-  render();
+  const {error}=await supabaseClient.from("tasks").insert(task);
 
-  const {data,error}=await supabaseClient.from("tasks").insert(task).select().single();
-  if(error){console.error(error);return;}
+  if(error){
+    console.error("INSERT ERROR:", error);
+    return;
+  }
 
-  /* REPLACE TEMP TASK */
-  cache[selectedDay]=cache[selectedDay].filter(t=>t.id!==fakeId);
-  cache[selectedDay].push(data);
-  render();
   closeModal();
+  render(); // 👈 cập nhật UI ngay
 }
 
 async function toggleDone(t){
-  t.done=!t.done;
+  await supabaseClient.from("tasks")
+    .update({done:!t.done}).eq("id",t.id);
   render();
-  await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
 }
 
 async function removeTask(id){
-  Object.keys(cache).forEach(d=>{
-    cache[d]=cache[d].filter(t=>t.id!==id);
-  });
-  render();
   await supabaseClient.from("tasks").delete().eq("id",id);
+  render();
 }
 
 async function dropTask(day){
   if(!dragTask)return;
-
-  Object.keys(cache).forEach(d=>{
-    cache[d]=cache[d].filter(t=>t.id!==dragTask.id);
-  });
-  (cache[day]??=[]).push(dragTask);
-
-  dragTask.task_date=formatDate(current.getFullYear(),current.getMonth(),day);
-  render();
-
-  await supabaseClient.from("tasks")
-    .update({task_date:dragTask.task_date})
-    .eq("id",dragTask.id);
-
+  await supabaseClient.from("tasks").update({
+    task_date:toDateString(new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      day
+    ))
+  }).eq("id",dragTask.id);
   dragTask=null;
+  render();
 }
 
 /* ================= UI ================= */
 function openModal(d){selectedDay=d;modal.style.display="flex";}
 function closeModal(e){if(!e||e.target===modal)modal.style.display="none";}
 function changeMonth(n){current.setMonth(current.getMonth()+n);render();}
-function toggleStats(){stats.style.display=stats.style.display==="block"?"none":"block";}
+function toggleStats(){
+  stats.style.display=stats.style.display==="block"?"none":"block";
+}
 
 /* ================= STATS ================= */
 function renderStats(){
   let all=[],done=0;
-  Object.values(cache).forEach(a=>a.forEach(t=>{all.push(t);if(t.done)done++;}));
+  Object.values(cache).forEach(a=>a.forEach(t=>{
+    all.push(t);if(t.done)done++;
+  }));
 
-  let html=`<h4>Tổng quan</h4>Tổng: ${all.length}<br>Done: ${done}<br>Pending: ${all.length-done}`;
+  let html=`<h4>Tổng quan</h4>
+  Tổng: ${all.length}<br>Done: ${done}<br>Pending: ${all.length-done}`;
+
   html+=`<h4>Person</h4>`;
-  Object.keys(PEOPLE).forEach(p=>html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`);
+  Object.keys(PEOPLE).forEach(p=>{
+    html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`;
+  });
+
   html+=`<h4>Task Type</h4>`;
-  TYPES.forEach(t=>html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`);
+  TYPES.forEach(t=>{
+    html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`;
+  });
 
   stats.innerHTML=html;
 }
+
+/* ================= REALTIME (OPTIONAL) ================= */
+supabaseClient
+  .channel("tasks-rt")
+  .on("postgres_changes",
+    {event:"*",schema:"public",table:"tasks"},
+    ()=>render()
+  )
+  .subscribe();
 
 /* ================= INIT ================= */
 Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
@@ -247,6 +259,8 @@ render();
 </script>
 
 
+
 </body>
 </html>
+
 
