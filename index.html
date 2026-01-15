@@ -88,12 +88,24 @@ const taskText = document.getElementById("taskText");
 const taskPerson = document.getElementById("taskPerson");
 const taskType = document.getElementById("taskType");
 
-/* ================= DATE HELPER ================= */
+/* ================= DATE HELPERS ================= */
 function formatDate(date){
   const y = date.getFullYear();
   const m = String(date.getMonth()+1).padStart(2,"0");
   const d = String(date.getDate()).padStart(2,"0");
   return `${y}-${m}-${d}`;
+}
+
+/* FIX DATE RANGE – NEVER YYYY-MM-00 */
+function getMonthRange(date){
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  end.setDate(end.getDate() - 1);
+
+  return {
+    start: formatDate(start),
+    end: formatDate(end)
+  };
 }
 
 /* ================= STATS ================= */
@@ -104,9 +116,9 @@ function renderStats(){
   );
 
   let html = `<h4>Tổng quan</h4>
-    Tổng:${all.length}<br>
-    Done:${done}<br>
-    Pending:${all.length-done}`;
+    Tổng: ${all.length}<br>
+    Done: ${done}<br>
+    Pending: ${all.length-done}`;
 
   html += `<h4>Person</h4>`;
   Object.keys(PEOPLE).forEach(p=>{
@@ -123,8 +135,7 @@ function renderStats(){
 
 /* ================= LOAD ================= */
 async function load(){
-  const start = formatDate(new Date(current.getFullYear(), current.getMonth(), 1));
-  const end   = formatDate(new Date(current.getFullYear(), current.getMonth()+1, 0));
+  const { start, end } = getMonthRange(current);
 
   const { data, error } = await supabase
     .from("tasks")
@@ -133,14 +144,14 @@ async function load(){
     .lte("task_date", end);
 
   if(error){
-    console.error(error);
+    console.error("LOAD ERROR:", error);
     return;
   }
 
   cache = {};
-  (data||[]).forEach(t=>{
-    const d = Number(t.task_date.slice(8,10));
-    (cache[d] ??= []).push(t);
+  (data || []).forEach(t=>{
+    const day = Number(t.task_date.slice(8,10));
+    (cache[day] ??= []).push(t);
   });
 }
 
@@ -150,12 +161,12 @@ async function render(){
   title.textContent = `Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
   calendar.innerHTML = "";
 
-  const days = new Date(current.getFullYear(), current.getMonth()+1, 0).getDate();
+  const daysInMonth = new Date(current.getFullYear(), current.getMonth()+1, 0).getDate();
   const offset = (new Date(current.getFullYear(), current.getMonth(), 1).getDay()+6)%7;
 
   for(let i=0;i<offset;i++) calendar.appendChild(document.createElement("div"));
 
-  for(let day=1; day<=days; day++){
+  for(let day=1; day<=daysInMonth; day++){
     const d = document.createElement("div");
     d.className="day";
     d.innerHTML=`<div class="day-number">${day}</div>`;
@@ -247,7 +258,7 @@ saveTask.onclick=saveTask;
 statsToggle.onclick=toggleStats;
 modal.onclick=e=>{if(e.target===modal)closeModal()};
 
-/* ================= POLLING (FREE REALTIME) ================= */
+/* ================= FREE REALTIME (POLLING) ================= */
 setInterval(render, 15000);
 
 /* ================= INIT ================= */
