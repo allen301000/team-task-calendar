@@ -1,117 +1,159 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8" />
-<title>Team Task Calendar</title>
+<meta charset="UTF-8">
+<title>Monthly Task Calendar</title>
 
+<!-- SUPABASE CDN -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui;background:#f4f6f8;padding:20px}
-.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
-.day{background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px;min-height:120px;cursor:pointer}
-.day strong{display:block;margin-bottom:4px}
-.task{background:#e3edff;margin-top:4px;padding:4px 6px;border-radius:4px;font-size:12px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center}
-.modal-content{background:#fff;padding:16px;width:320px;border-radius:8px}
-.modal-content input{width:100%;margin-bottom:8px;padding:6px}
+/* ======= CSS GIỮ NGUYÊN 100% ======= */
+body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
+header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
+.weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
+.weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 120px)}
+.day{border:1px solid #24262b;padding:6px;font-size:12px}
+.day-number{opacity:.6;margin-bottom:4px}
+.task{position:relative;padding:6px;border-radius:6px;margin-bottom:4px;cursor:grab;color:#000}
+.task.done{background:#c8e6c9!important}
+.task-type{font-size:10px;opacity:.8}
+.delete{position:absolute;top:2px;right:4px;font-size:12px;cursor:pointer;opacity:0}
+.task:hover .delete{opacity:1}
+.add{opacity:.5;cursor:pointer;font-size:11px}
+.add:hover{opacity:1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
+.modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
+.modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px}
+.modal-box button{width:100%}
+.stats-toggle{position:fixed;bottom:10px;right:10px;background:#1f2228;padding:6px 10px;cursor:pointer}
+.stats{position:fixed;bottom:50px;right:10px;background:#1b1d22;padding:12px;border-radius:8px;display:none;font-size:12px;width:220px}
+.stats h4{margin:6px 0 4px;font-size:12px;border-bottom:1px solid #333}
 </style>
 </head>
 
 <body>
 
-<h2 id="monthLabel"></h2>
-<div id="calendar" class="calendar"></div>
+<header>
+  <button id="prevMonth">←</button>
+  <div id="title"></div>
+  <button id="nextMonth">→</button>
+</header>
+
+<div class="weekdays">
+  <div>Mon</div><div>Tue</div><div>Wed</div>
+  <div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+</div>
+
+<div class="calendar" id="calendar"></div>
 
 <div class="modal" id="modal">
-  <div class="modal-content">
-    <h3>Thêm task</h3>
+  <div class="modal-box">
     <input id="taskText" placeholder="Task name">
-    <input id="taskPerson" placeholder="Person">
-    <input id="taskType" placeholder="Type">
-    <div style="text-align:right">
-      <button id="closeModal">Cancel</button>
-      <button id="saveTask">Save</button>
-    </div>
+    <select id="taskPerson"></select>
+    <select id="taskType"></select>
+    <button id="saveTask">Add Task</button>
   </div>
 </div>
+
+<div class="stats-toggle" id="statsToggle">📊 Stats</div>
+<div class="stats" id="stats"></div>
 
 <script>
 /* ================= SUPABASE ================= */
 const SUPABASE_URL = "https://letbykkygmmdxbmnemam.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
+const SUPABASE_KEY = "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo";
 
-/* ⛔ KHÔNG DÙNG TÊN supabase */
+/* ⛔ KHÔNG dùng tên supabase */
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
-  SUPABASE_ANON_KEY
+  SUPABASE_KEY
 );
 
+/* ================= CONFIG ================= */
+const PEOPLE = {
+  Tony:"#ff8a80", Allen:"#90caf9", Davis:"#b39ddb", Alex:"#ffe082",
+  Lucas:"#b0bec5", Hayden:"#f48fb1", Leo:"#ce93d8", Dante:"#a5d6a7"
+};
+const TYPES = ["Design + QR","Design","Menu + QR","Menu","QR"];
+
 /* ================= STATE ================= */
-const calendarEl = document.getElementById("calendar");
+let current = new Date();
+let selectedDay = null;
+let cache = {};
+
+/* ================= DOM ================= */
+const calendar = document.getElementById("calendar");
 const modal = document.getElementById("modal");
+const title = document.getElementById("title");
+const stats = document.getElementById("stats");
 const taskText = document.getElementById("taskText");
 const taskPerson = document.getElementById("taskPerson");
 const taskType = document.getElementById("taskType");
 
-let current = new Date();
-let selectedDay = null;
-
-/* ================= UTILS ================= */
+/* ================= DATE ================= */
 const fmt = d => d.toISOString().slice(0,10);
-const daysInMonth = (y,m)=>new Date(y,m+1,0).getDate();
 
-/* ================= RENDER ================= */
-async function renderCalendar(){
-  calendarEl.innerHTML="";
-
-  const y=current.getFullYear();
-  const m=current.getMonth();
-  document.getElementById("monthLabel").textContent =
-    current.toLocaleString("vi",{month:"long",year:"numeric"});
-
+/* ================= LOAD ================= */
+async function load(){
+  const y=current.getFullYear(), m=current.getMonth();
   const start=fmt(new Date(y,m,1));
   const end=fmt(new Date(y,m+1,0));
 
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("tasks")
     .select("*")
     .gte("task_date",start)
     .lte("task_date",end);
 
-  const map={};
-  (data||[]).forEach(t=>(map[t.task_date]??=[]).push(t));
+  if(error){console.error(error);return;}
 
-  for(let d=1;d<=daysInMonth(y,m);d++){
-    const date=fmt(new Date(y,m,d));
-    const cell=document.createElement("div");
-    cell.className="day";
-    cell.dataset.day=d;
-    cell.innerHTML=`<strong>${d}</strong>`;
+  cache={};
+  (data||[]).forEach(t=>{
+    const day=Number(t.task_date.slice(8,10));
+    (cache[day]??=[]).push(t);
+  });
+}
 
-    (map[date]||[]).forEach(t=>{
-      const el=document.createElement("div");
-      el.className="task";
-      el.textContent=`${t.text} (${t.person})`;
-      cell.appendChild(el);
+/* ================= RENDER ================= */
+async function render(){
+  await load();
+  title.textContent=`Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
+  calendar.innerHTML="";
+
+  const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
+  const offset=(new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
+  for(let i=0;i<offset;i++)calendar.appendChild(document.createElement("div"));
+
+  for(let d=1;d<=days;d++){
+    const el=document.createElement("div");
+    el.className="day";
+    el.innerHTML=`<div class="day-number">${d}</div>`;
+
+    (cache[d]||[]).forEach(t=>{
+      const tEl=document.createElement("div");
+      tEl.className="task";
+      tEl.style.background=PEOPLE[t.person];
+      tEl.innerHTML=`<strong>${t.text}</strong>
+        <div class="task-type">${t.person} • ${t.type}</div>`;
+      el.appendChild(tEl);
     });
 
-    calendarEl.appendChild(cell);
+    const add=document.createElement("div");
+    add.className="add";
+    add.textContent="+ Add task";
+    add.onclick=()=>{selectedDay=d;modal.style.display="flex"};
+    el.appendChild(add);
+
+    calendar.appendChild(el);
   }
 }
 
-/* ================= EVENTS ================= */
-calendarEl.onclick=e=>{
-  const day=e.target.closest(".day");
-  if(!day)return;
-  selectedDay=Number(day.dataset.day);
-  modal.style.display="flex";
-};
-
-closeModal.onclick=()=>modal.style.display="none";
+/* ================= ADD TASK ================= */
 saveTask.onclick=async()=>{
-  if(!taskText.value||!selectedDay)return;
+  if(!taskText.value)return;
 
   await supabaseClient.from("tasks").insert({
     task_date:fmt(new Date(current.getFullYear(),current.getMonth(),selectedDay)),
@@ -121,23 +163,24 @@ saveTask.onclick=async()=>{
   });
 
   modal.style.display="none";
-  taskText.value=taskPerson.value=taskType.value="";
+  taskText.value="";
 };
 
 /* ================= REALTIME – FREE ================= */
 supabaseClient
-  .channel("tasks-live")
+  .channel("tasks-realtime")
   .on(
     "postgres_changes",
     {event:"*",schema:"public",table:"tasks"},
-    renderCalendar
+    render
   )
   .subscribe();
 
 /* ================= INIT ================= */
-renderCalendar();
+Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
+TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
+render();
 </script>
 
 </body>
 </html>
-
