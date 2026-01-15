@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <title>Team Task Calendar</title>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
 header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
@@ -77,26 +79,21 @@ let selectedDay=null;
 let dragTask=null;
 let cache={};
 
-/* ================= DATE HELPERS ================= */
-function formatDate(d){
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+/* ================= DATE SAFE (NO TZ BUG) ================= */
+function buildDate(y,m,d){
+  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 
 /* ================= LOAD ================= */
 async function load(){
-  const y=current.getFullYear();
-  const m=current.getMonth();
+  const start=buildDate(current.getFullYear(),current.getMonth(),1);
+  const end=buildDate(current.getFullYear(),current.getMonth()+1,0);
 
-  const start=formatDate(new Date(y,m,1));
-  const end=formatDate(new Date(y,m+1,0));
-
-  const {data,error}=await supabaseClient
+  const {data}=await supabaseClient
     .from("tasks")
     .select("*")
     .gte("task_date",start)
     .lte("task_date",end);
-
-  if(error){console.error(error);return;}
 
   cache={};
   (data||[]).forEach(t=>{
@@ -110,8 +107,7 @@ async function render(){
   await load();
   const cal=document.getElementById("calendar");
   cal.innerHTML="";
-  document.getElementById("title").textContent=
-    `Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
+  title.textContent=`Tháng ${current.getMonth()+1} / ${current.getFullYear()}`;
 
   const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
   const offset=(new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
@@ -152,88 +148,104 @@ async function render(){
 
     cal.appendChild(el);
   }
-
   renderStats();
 }
 
-/* ================= ACTIONS ================= */
+/* ================= OPTIMISTIC ADD ================= */
 async function saveTask(){
   if(!selectedDay||!taskText.value.trim())return;
 
-  await supabaseClient.from("tasks").insert({
-    task_date:formatDate(new Date(
-      current.getFullYear(),
-      current.getMonth(),
-      selectedDay
-    )),
+  const tempId="tmp_"+Date.now();
+  const newTask={
+    id:tempId,
+    task_date:buildDate(current.getFullYear(),current.getMonth(),selectedDay),
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
     done:false
-  });
+  };
 
+  (cache[selectedDay]??=[]).push(newTask);
+  render();
   closeModal();
+
+  const {data,error}=await supabaseClient
+    .from("tasks")
+    .insert(newTask)
+    .select()
+    .single();
+
+  if(error){
+    cache[selectedDay]=cache[selectedDay].filter(t=>t.id!==tempId);
+    render();
+    alert(error.message);
+    return;
+  }
+
+  const i=cache[selectedDay].findIndex(t=>t.id===tempId);
+  if(i!==-1) cache[selectedDay][i]=data;
 }
 
-async function toggleDone(t){
-  await supabaseClient.from("tasks")
-    .update({done:!t.done}).eq("id",t.id);
-}
-
+/* ================= OPTIMISTIC DELETE ================= */
 async function removeTask(id){
+  Object.keys(cache).forEach(d=>{
+    cache[d]=cache[d].filter(t=>t.id!==id);
+  });
+  render();
+
   await supabaseClient.from("tasks").delete().eq("id",id);
 }
 
+/* ================= DRAG ================= */
 async function dropTask(day){
   if(!dragTask)return;
-  await supabaseClient.from("tasks").update({
-    task_date:formatDate(new Date(
-      current.getFullYear(),
-      current.getMonth(),
-      day
-    ))
-  }).eq("id",dragTask.id);
+
+  Object.keys(cache).forEach(d=>{
+    cache[d]=cache[d].filter(t=>t.id!==dragTask.id);
+  });
+  (cache[day]??=[]).push({...dragTask,task_date:buildDate(current.getFullYear(),current.getMonth(),day)});
+  render();
+
+  await supabaseClient.from("tasks")
+    .update({task_date:buildDate(current.getFullYear(),current.getMonth(),day)})
+    .eq("id",dragTask.id);
+
   dragTask=null;
 }
 
-/* ================= UI ================= */
+/* ================= OTHERS ================= */
+async function toggleDone(t){
+  t.done=!t.done;
+  render();
+  await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
+}
+
 function openModal(d){selectedDay=d;modal.style.display="flex";}
 function closeModal(e){if(!e||e.target===modal)modal.style.display="none";}
 function changeMonth(n){current.setMonth(current.getMonth()+n);render();}
-function toggleStats(){
-  stats.style.display=stats.style.display==="block"?"none":"block";
-}
+function toggleStats(){stats.style.display=stats.style.display==="block"?"none":"block";}
 
 /* ================= STATS ================= */
 function renderStats(){
   let all=[],done=0;
-  Object.values(cache).forEach(a=>a.forEach(t=>{
-    all.push(t);if(t.done)done++;
-  }));
+  Object.values(cache).forEach(a=>a.forEach(t=>{all.push(t);if(t.done)done++;}));
 
   let html=`<h4>Tổng quan</h4>
   Tổng: ${all.length}<br>Done: ${done}<br>Pending: ${all.length-done}`;
 
   html+=`<h4>Person</h4>`;
-  Object.keys(PEOPLE).forEach(p=>{
-    html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`;
-  });
+  Object.keys(PEOPLE).forEach(p=>html+=`${p}: ${all.filter(t=>t.person===p).length}<br>`);
 
   html+=`<h4>Task Type</h4>`;
-  TYPES.forEach(t=>{
-    html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`;
-  });
+  TYPES.forEach(t=>html+=`${t}: ${all.filter(x=>x.type===t).length}<br>`);
 
   stats.innerHTML=html;
 }
 
-/* ================= REALTIME ================= */
+/* ================= REALTIME (SYNC ONLY) ================= */
 supabaseClient
   .channel("tasks-rt")
-  .on("postgres_changes",
-    {event:"*",schema:"public",table:"tasks"},
-    ()=>render()
-  )
+  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},()=>render())
   .subscribe();
 
 /* ================= INIT ================= */
