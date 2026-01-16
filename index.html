@@ -13,7 +13,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 .weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
 .weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
 
-.calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 210px)}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 240px)}
 .day{border:1px solid #24262b;padding:6px;font-size:12px}
 .day-number{opacity:.6;margin-bottom:4px}
 
@@ -52,7 +52,6 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   box-shadow:0 0 0 2px rgba(255,82,82,.4);
 }
 
-/* */
 .task-type{font-size:10px;opacity:.8}
 
 .delete,.copy-btn{
@@ -77,6 +76,21 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 .filter-bar{display:flex;gap:8px;padding:8px 16px}
 .filter-bar select{background:#1f2228;color:#fff;border:none;padding:6px}
 
+/* STATS */
+.stats-toggle{
+  position:fixed;bottom:90px;right:12px;
+  background:#1f2228;padding:6px 10px;
+  cursor:pointer;border-radius:6px
+}
+.stats{
+  position:fixed;bottom:130px;right:12px;
+  background:#1b1d22;padding:12px;
+  border-radius:8px;font-size:12px;
+  width:220px;display:none
+}
+.stats h4{margin:4px 0;border-bottom:1px solid #333}
+
+/* TOAST */
 .toast{
   position:fixed;bottom:50px;left:50%;
   transform:translateX(-50%);
@@ -87,6 +101,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 }
 .toast.show{opacity:1}
 
+/* EDIT BAR */
 .edit-bar{
   position:fixed;bottom:10px;left:50%;
   transform:translateX(-50%);
@@ -131,6 +146,9 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   </div>
 </div>
 
+<div class="stats-toggle" onclick="toggleStats()">📊 Stats</div>
+<div class="stats" id="stats"></div>
+
 <div class="toast" id="toast"></div>
 
 <div class="edit-bar">
@@ -168,15 +186,13 @@ function toast(msg,color="#333"){
   toastEl.textContent=msg;
   toastEl.style.background=color;
   toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"),1200);
+  setTimeout(()=>toastEl.classList.remove("show"),1500);
 }
-
-function formatDate(y,m,d){
-  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-}
-
 function normalizeText(str){
   return str.toLowerCase().replace(/\s+/g," ").trim();
+}
+function formatDate(y,m,d){
+  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 
 /* ================= LOAD ================= */
@@ -200,11 +216,11 @@ function renderCalendarOnly(){
   calendar.innerHTML="";
   title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
 
-  /* build duplicate map */
-  const duplicateMap={};
-  Object.values(cache).flat().forEach(t=>{
+  const flat=Object.values(cache).flat();
+  const map={};
+  flat.forEach(t=>{
     const k=normalizeText(t.text);
-    duplicateMap[k]=(duplicateMap[k]||0)+1;
+    map[k]=(map[k]||0)+1;
   });
 
   const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
@@ -223,13 +239,13 @@ function renderCalendarOnly(){
     (cache[d]||[])
       .filter(t=>!activePersonFilter||t.person===activePersonFilter)
       .forEach(t=>{
-        const isDup=duplicateMap[normalizeText(t.text)]>1;
+        const dup=map[normalizeText(t.text)]>1;
 
         const task=document.createElement("div");
         task.className=
           "task"+
           (t.done?" done":"")+
-          (isDup?" duplicate":"")+
+          (dup?" duplicate":"")+
           (canEdit?"":" readonly");
 
         task.style.background=PEOPLE[t.person];
@@ -263,7 +279,6 @@ function renderCalendarOnly(){
           };
           task.appendChild(del);
         }
-
         el.appendChild(task);
       });
 
@@ -276,12 +291,22 @@ function renderCalendarOnly(){
     }
     calendar.appendChild(el);
   }
+  renderStats(map,flat);
 }
 
-async function render(){
-  await load();
-  renderCalendarOnly();
+function renderStats(map,flat){
+  const done=flat.filter(t=>t.done).length;
+  const dup=Object.values(map).filter(v=>v>1).length;
+  stats.innerHTML=`
+    <h4>Thống kê tháng</h4>
+    Total: ${flat.length}<br>
+    Done: ${done}<br>
+    Pending: ${flat.length-done}<br>
+    Duplicate: ${dup}
+  `;
 }
+
+async function render(){await load();renderCalendarOnly();}
 
 /* ================= ACTIONS ================= */
 function unlockEdit(){
@@ -295,6 +320,17 @@ function unlockEdit(){
 
 async function saveTask(){
   if(!canEdit||!selectedDay||!taskText.value)return;
+
+  const name=normalizeText(taskText.value);
+  const exists=Object.values(cache)
+    .flat()
+    .some(t=>normalizeText(t.text)===name);
+
+  if(exists){
+    toast("Task bị trùng – không thể thêm","#c62828");
+    return;
+  }
+
   const task={
     task_date:formatDate(current.getFullYear(),current.getMonth(),selectedDay),
     text:taskText.value,
@@ -302,10 +338,10 @@ async function saveTask(){
     type:taskType.value,
     done:false
   };
-  (cache[selectedDay]??=[]).push(task);
-  renderCalendarOnly();
-  closeModal();
+
   await supabaseClient.from("tasks").insert(task);
+  toast("Task added","#2e7d32");
+  closeModal();
 }
 
 async function toggleDone(t){
@@ -315,16 +351,11 @@ async function toggleDone(t){
 }
 
 async function removeTask(id){
-  Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(t=>t.id!==id));
-  renderCalendarOnly();
   await supabaseClient.from("tasks").delete().eq("id",id);
 }
 
 async function dropTask(day){
   if(!dragTask)return;
-  Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(t=>t!==dragTask));
-  (cache[day]??=[]).push(dragTask);
-  renderCalendarOnly();
   await supabaseClient.from("tasks")
     .update({task_date:formatDate(current.getFullYear(),current.getMonth(),day)})
     .eq("id",dragTask.id);
@@ -335,6 +366,9 @@ async function dropTask(day){
 function openModal(d){selectedDay=d;modal.style.display="flex"}
 function closeModal(e){if(!e||e.target===modal)modal.style.display="none"}
 function changeMonth(n){current.setMonth(current.getMonth()+n);render()}
+function toggleStats(){
+  stats.style.display=stats.style.display==="block"?"none":"block";
+}
 
 /* ================= INIT ================= */
 Object.keys(PEOPLE).forEach(p=>{
