@@ -28,10 +28,10 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 }
 .task.readonly{cursor:default;opacity:.85}
 
-/* DONE – giữ màu gốc */
+/* DONE – giữ màu */
 .task.done{
   opacity:.45;
-  filter:grayscale(.15);
+  filter:grayscale(.2);
 }
 .task.done::after{
   content:"Completed";
@@ -41,16 +41,10 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   font-size:9px;
   padding:2px 6px;
   border-radius:10px;
-  background:#2e7d32;
+  background:#1b5e20;
   color:#fff;
 }
 .task.done strong{text-decoration:line-through}
-
-/* DUPLICATE */
-.task.duplicate{
-  outline:2px solid #ff5252;
-  box-shadow:0 0 0 2px rgba(255,82,82,.4);
-}
 
 .task-type{font-size:10px;opacity:.8}
 
@@ -62,35 +56,24 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   opacity:0;
 }
 .delete{right:6px}
-.copy-btn{right:22px}
+.copy-btn{right:24px}
 .task:hover .delete,
 .task:hover .copy-btn{opacity:1}
 
 .add{opacity:.5;cursor:pointer;font-size:11px}
 .add:hover{opacity:1}
 
+/* modal */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
 .modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
 .modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px}
+.modal-box button{width:100%}
 
+/* filter */
 .filter-bar{display:flex;gap:8px;padding:8px 16px}
 .filter-bar select{background:#1f2228;color:#fff;border:none;padding:6px}
 
-/* STATS */
-.stats-toggle{
-  position:fixed;bottom:90px;right:12px;
-  background:#1f2228;padding:6px 10px;
-  cursor:pointer;border-radius:6px
-}
-.stats{
-  position:fixed;bottom:130px;right:12px;
-  background:#1b1d22;padding:12px;
-  border-radius:8px;font-size:12px;
-  width:220px;display:none
-}
-.stats h4{margin:4px 0;border-bottom:1px solid #333}
-
-/* TOAST */
+/* toast */
 .toast{
   position:fixed;bottom:50px;left:50%;
   transform:translateX(-50%);
@@ -101,7 +84,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 }
 .toast.show{opacity:1}
 
-/* EDIT BAR */
+/* edit bar */
 .edit-bar{
   position:fixed;bottom:10px;left:50%;
   transform:translateX(-50%);
@@ -115,6 +98,15 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   background:#2e7d32;border:none;
   color:#fff;padding:6px 10px;cursor:pointer
 }
+
+/* stats */
+.stats{
+  position:fixed;bottom:90px;right:10px;
+  background:#1b1d22;padding:12px;
+  border-radius:8px;font-size:12px;
+  width:220px
+}
+.stats h4{margin:0 0 6px;font-size:12px}
 </style>
 </head>
 
@@ -146,9 +138,6 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   </div>
 </div>
 
-<div class="stats-toggle" onclick="toggleStats()">📊 Stats</div>
-<div class="stats" id="stats"></div>
-
 <div class="toast" id="toast"></div>
 
 <div class="edit-bar">
@@ -156,9 +145,12 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   <button onclick="unlockEdit()">Unlock</button>
 </div>
 
+<div class="stats" id="stats"></div>
+
 <script>
-/* ================= CONFIG ================= */
+/* ===== CONFIG ===== */
 const EDIT_CODE="TEAM2026";
+const PERSON_ORDER=["Tony","Alex","Davis","Lucas","Allen","Hayden","Leo","Dante"];
 
 const supabaseClient=supabase.createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
@@ -166,13 +158,13 @@ const supabaseClient=supabase.createClient(
 );
 
 const PEOPLE={
-  Tony:"#D5F0C1",Allen:"#F96E5B",Davis:"#FFE2AF",
-  Alex:"#F7CFD8",Lucas:"#91DDCF",Hayden:"#f48fb1",
-  Leo:"#F8FAE5",Dante:"#fff"
+  Tony:"#D5F0C1",Alex:"#F7CFD8",Davis:"#FFE2AF",
+  Lucas:"#91DDCF",Allen:"#F96E5B",Hayden:"#f48fb1",
+  Leo:"#F8FAE5",Dante:"#ffffff"
 };
 const TYPES=["Design+QR","Menu+QR","Design","Menu","QR"];
 
-/* ================= STATE ================= */
+/* ===== STATE ===== */
 let current=new Date();
 let selectedDay=null;
 let dragTask=null;
@@ -180,22 +172,19 @@ let cache={};
 let activePersonFilter="";
 let canEdit=localStorage.getItem("canEdit")==="1";
 
-/* ================= HELPERS ================= */
+/* ===== HELPERS ===== */
 const toastEl=document.getElementById("toast");
 function toast(msg,color="#333"){
   toastEl.textContent=msg;
   toastEl.style.background=color;
   toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"),1500);
-}
-function normalizeText(str){
-  return str.toLowerCase().replace(/\s+/g," ").trim();
+  setTimeout(()=>toastEl.classList.remove("show"),1200);
 }
 function formatDate(y,m,d){
   return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 
-/* ================= LOAD ================= */
+/* ===== LOAD ===== */
 async function load(){
   const y=current.getFullYear(),m=current.getMonth();
   const start=formatDate(y,m,1);
@@ -211,17 +200,12 @@ async function load(){
   });
 }
 
-/* ================= RENDER ================= */
+/* ===== RENDER ===== */
 function renderCalendarOnly(){
   calendar.innerHTML="";
   title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
 
-  const flat=Object.values(cache).flat();
-  const map={};
-  flat.forEach(t=>{
-    const k=normalizeText(t.text);
-    map[k]=(map[k]||0)+1;
-  });
+  let total=0,done=0;
 
   const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
   const offset=(new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
@@ -231,6 +215,7 @@ function renderCalendarOnly(){
     const el=document.createElement("div");
     el.className="day";
     el.innerHTML=`<div class="day-number">${d}</div>`;
+
     if(canEdit){
       el.ondragover=e=>e.preventDefault();
       el.ondrop=()=>dropTask(d);
@@ -238,16 +223,12 @@ function renderCalendarOnly(){
 
     (cache[d]||[])
       .filter(t=>!activePersonFilter||t.person===activePersonFilter)
+      .sort((a,b)=>PERSON_ORDER.indexOf(a.person)-PERSON_ORDER.indexOf(b.person))
       .forEach(t=>{
-        const dup=map[normalizeText(t.text)]>1;
+        total++; if(t.done)done++;
 
         const task=document.createElement("div");
-        task.className=
-          "task"+
-          (t.done?" done":"")+
-          (dup?" duplicate":"")+
-          (canEdit?"":" readonly");
-
+        task.className="task"+(t.done?" done":"")+(canEdit?"":" readonly");
         task.style.background=PEOPLE[t.person];
         task.draggable=canEdit;
 
@@ -279,6 +260,7 @@ function renderCalendarOnly(){
           };
           task.appendChild(del);
         }
+
         el.appendChild(task);
       });
 
@@ -291,24 +273,19 @@ function renderCalendarOnly(){
     }
     calendar.appendChild(el);
   }
-  renderStats(map,flat);
-}
 
-function renderStats(map,flat){
-  const done=flat.filter(t=>t.done).length;
-  const dup=Object.values(map).filter(v=>v>1).length;
-  stats.innerHTML=`
-    <h4>Thống kê tháng</h4>
-    Total: ${flat.length}<br>
+  stats.innerHTML=`<h4>Stats tháng</h4>
+    Total: ${total}<br>
     Done: ${done}<br>
-    Pending: ${flat.length-done}<br>
-    Duplicate: ${dup}
-  `;
+    Pending: ${total-done}`;
 }
 
-async function render(){await load();renderCalendarOnly();}
+async function render(){
+  await load();
+  renderCalendarOnly();
+}
 
-/* ================= ACTIONS ================= */
+/* ===== ACTIONS ===== */
 function unlockEdit(){
   if(editCode.value===EDIT_CODE){
     canEdit=true;
@@ -321,13 +298,11 @@ function unlockEdit(){
 async function saveTask(){
   if(!canEdit||!selectedDay||!taskText.value)return;
 
-  const name=normalizeText(taskText.value);
-  const exists=Object.values(cache)
-    .flat()
-    .some(t=>normalizeText(t.text)===name);
+  const exists=(cache[selectedDay]||[])
+    .some(t=>t.text.trim().toLowerCase()===taskText.value.trim().toLowerCase());
 
   if(exists){
-    toast("Task bị trùng – không thể thêm","#c62828");
+    toast("Task bị trùng","#b71c1c");
     return;
   }
 
@@ -340,14 +315,12 @@ async function saveTask(){
   };
 
   await supabaseClient.from("tasks").insert(task);
-  toast("Task added","#2e7d32");
   closeModal();
 }
 
 async function toggleDone(t){
-  t.done=!t.done;
-  renderCalendarOnly();
-  await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
+  await supabaseClient.from("tasks")
+    .update({done:!t.done}).eq("id",t.id);
 }
 
 async function removeTask(id){
@@ -362,15 +335,12 @@ async function dropTask(day){
   dragTask=null;
 }
 
-/* ================= UI ================= */
+/* ===== UI ===== */
 function openModal(d){selectedDay=d;modal.style.display="flex"}
 function closeModal(e){if(!e||e.target===modal)modal.style.display="none"}
 function changeMonth(n){current.setMonth(current.getMonth()+n);render()}
-function toggleStats(){
-  stats.style.display=stats.style.display==="block"?"none":"block";
-}
 
-/* ================= INIT ================= */
+/* ===== INIT ===== */
 Object.keys(PEOPLE).forEach(p=>{
   taskPerson.innerHTML+=`<option>${p}</option>`;
   filterPerson.innerHTML+=`<option>${p}</option>`;
