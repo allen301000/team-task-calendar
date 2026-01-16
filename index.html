@@ -338,8 +338,14 @@ Object.keys(PEOPLE).forEach(p=>{
 });
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
 
-filterPerson.onchange=renderCalendarOnly;
-viewMode.onchange=renderCalendarOnly;
+filterPerson.onchange = renderCalendarOnly;
+viewMode.onchange = renderCalendarOnly;
+
+/* ép render theo assign ngay từ đầu */
+viewMode.value = "assign";
+
+render();
+
 
 supabaseClient.channel("tasks-rt")
   .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
@@ -349,3 +355,4 @@ render();
 </script>
 </body>
 </html>
+
