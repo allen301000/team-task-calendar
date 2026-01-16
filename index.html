@@ -26,7 +26,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   color:#000;
 }
 .task.readonly{cursor:default;opacity:.85}
-.task.done{background:#132119!important;color:#fff}
+.task.done{background:#0b3214!important;color:#fff; opacity:0.5;}
 .task.done::after{
   content:"Completed";
   position:absolute;
@@ -35,7 +35,9 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   font-size:9px;
   opacity:.8;
 }
-
+.task.done strong{
+    text-decoration: line-through;
+}
 .task-type{font-size:10px;opacity:.8}
 
 .delete,.copy-btn{
@@ -349,4 +351,5 @@ render();
 </script>
 </body>
 </html>
+
 
