@@ -3,356 +3,275 @@
 <head>
 <meta charset="UTF-8">
 <title>Team Task Calendar</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- SORTABLE -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
-header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
-header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
-
-.weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
-.weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
-
-.calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 210px)}
-.day{border:1px solid #24262b;padding:6px;font-size:12px}
-.day-number{opacity:.6;margin-bottom:4px}
-
-.task{
-  position:relative;
-  padding:6px;
-  border-radius:6px;
-  margin-bottom:4px;
-  cursor:grab;
-  color:#000;
+/* ===== BASE ===== */
+body{
+  font-family:system-ui,-apple-system;
+  margin:0;
+  background:#f4f6f8;
 }
-.task.readonly{cursor:default;opacity:.85}
-.task.done{opacity:.45;filter:grayscale(.15)}
+header{
+  background:#111827;
+  color:#fff;
+  padding:12px 20px;
+  font-size:18px;
+}
+.controls{
+  display:flex;
+  gap:10px;
+  padding:10px;
+  background:#fff;
+  border-bottom:1px solid #ddd;
+}
+select,input,button{
+  padding:6px 8px;
+  border:1px solid #ccc;
+  border-radius:6px;
+}
+
+/* ===== CALENDAR ===== */
+.calendar{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:10px;
+  padding:10px;
+}
+.day{
+  background:#fff;
+  border-radius:10px;
+  padding:6px;
+  min-height:160px;
+}
+.day h4{
+  margin:4px;
+  font-size:14px;
+}
+.task{
+  margin:4px 0;
+  padding:6px 8px;
+  border-radius:8px;
+  font-size:13px;
+  cursor:grab;
+  position:relative;
+  transition:.2s;
+}
+.task:hover{transform:scale(1.02)}
+.task.done{
+  opacity:.45;
+}
 .task.done::after{
-  content:"Completed";
+  content:"COMPLETED";
   position:absolute;
-  top:2px;
+  top:4px;
   right:6px;
   font-size:9px;
-  background:#1b5e20;
-  color:#fff;
-  padding:2px 6px;
-  border-radius:10px;
+  color:#065f46;
 }
-.task.done strong{text-decoration:line-through}
-
-.task-type{font-size:10px;opacity:.8}
-
-.delete,.copy-btn{
+.task:hover .actions{
+  opacity:1;
+}
+.actions{
   position:absolute;
-  bottom:2px;
-  font-size:14px;
-  cursor:pointer;
+  top:2px;
+  right:4px;
+  display:flex;
+  gap:4px;
   opacity:0;
 }
-.delete{right:6px}
-.copy-btn{right:22px}
-.task:hover .delete,
-.task:hover .copy-btn{opacity:1}
-
-.add{opacity:.5;cursor:pointer;font-size:11px}
-.add:hover{opacity:1}
-
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
-.modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
-.modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px}
-
-.filter-bar{display:flex;gap:8px;padding:8px 16px}
-.filter-bar select{background:#1f2228;color:#fff;border:none;padding:6px}
-
-.toast{
-  position:fixed;bottom:50px;left:50%;
-  transform:translateX(-50%);
-  background:#333;color:#fff;
-  padding:8px 14px;border-radius:6px;
-  font-size:12px;opacity:0;transition:.25s;
+.actions span{
+  cursor:pointer;
+  font-size:12px;
 }
-.toast.show{opacity:1}
 
-.edit-bar{
-  position:fixed;bottom:10px;left:50%;
-  transform:translateX(-50%);
-  display:flex;gap:6px
+/* ===== TOAST ===== */
+#toast{
+  position:fixed;
+  bottom:30px;
+  right:30px;
+  background:#111827;
+  color:#fff;
+  padding:12px 16px;
+  border-radius:10px;
+  opacity:0;
+  transform:translateY(20px);
+  transition:.3s;
+  z-index:999;
 }
-.edit-bar input{
-  background:#1f2228;border:1px solid #333;
-  color:#fff;padding:6px;width:120px
+#toast.show{
+  opacity:1;
+  transform:translateY(0);
 }
-.edit-bar button{
-  background:#2e7d32;border:none;
-  color:#fff;padding:6px 10px;cursor:pointer
-}
+
+/* ===== COLORS ===== */
+.color-1{background:#dbeafe}
+.color-2{background:#dcfce7}
+.color-3{background:#fee2e2}
+.color-4{background:#ede9fe}
 </style>
 </head>
 
 <body>
 
-<header>
-  <button onclick="changeMonth(-1)">←</button>
-  <div id="title"></div>
-  <button onclick="changeMonth(1)">→</button>
-</header>
+<header>Team Task Calendar</header>
 
-<div class="filter-bar">
-  <select id="filterPerson">
-    <option value="">All people</option>
+<div class="controls">
+  <input id="taskName" placeholder="Task name">
+  <select id="assign">
+    <option>Tony</option><option>Davis</option><option>Alex</option>
+    <option>Lucas</option><option>Allen</option>
+    <option>Hayden</option><option>Leo</option><option>Dante</option>
   </select>
+  <input id="taskDate" type="date">
+  <button onclick="addTask()">Add</button>
+
   <select id="viewMode">
+    <option value="assign" selected>View by assign order</option>
     <option value="normal">Normal view</option>
-    <option value="assign">View by assign order</option>
+  </select>
+
+  <select id="filterPerson">
+    <option value="">All</option>
+    <option>Tony</option><option>Davis</option><option>Alex</option>
+    <option>Lucas</option><option>Allen</option>
+    <option>Hayden</option><option>Leo</option><option>Dante</option>
   </select>
 </div>
 
-<div class="weekdays">
-  <div>Mon</div><div>Tue</div><div>Wed</div>
-  <div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
-</div>
+<div id="calendar" class="calendar"></div>
 
-<div class="calendar" id="calendar"></div>
-
-<div class="modal" id="modal" onclick="closeModal(event)">
-  <div class="modal-box">
-    <input id="taskText" placeholder="Task name">
-    <select id="taskPerson"></select>
-    <select id="taskType"></select>
-    <button onclick="saveTask()">Add Task</button>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<div class="edit-bar">
-  <input id="editCode" placeholder="Edit code">
-  <button onclick="unlockEdit()">Unlock</button>
-</div>
+<div id="toast"></div>
 
 <script>
 /* ===== CONFIG ===== */
-const EDIT_CODE="TEAM2026";
-
-const supabaseClient=supabase.createClient(
-  "https://letbykkygmmdxbmnemam.supabase.co",
-  "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
-);
-
 const PEOPLE_ORDER=["Tony","Davis","Alex","Lucas","Allen","Hayden","Leo","Dante"];
-const PEOPLE={
-  Tony:"#ff8a80",Allen:"#90caf9",Davis:"#b39ddb",Alex:"#ffe082",
-  Lucas:"#b0bec5",Hayden:"#f48fb1",Leo:"#ce93d8",Dante:"#a5d6a7"
-};
-const TYPES=["Design + QR","Design","Menu + QR","Menu","QR"];
+const SECRET_CODE="1234";
 
-let current=new Date();
-let selectedDay=null;
-let cache={};
-let canEdit=localStorage.getItem("canEdit")==="1";
-let activePersonFilter="";
-let dragTask=null,dragFromDay=null,dragFromIndex=null;
+/* ===== STATE ===== */
+let tasks=JSON.parse(localStorage.getItem("tasks")||"[]");
 
-/* ===== HELPERS ===== */
-function toast(msg,color="#333"){
+/* ===== TOAST ===== */
+function toast(msg){
   const t=document.getElementById("toast");
-  t.textContent=msg;
-  t.style.background=color;
+  t.innerText=msg;
   t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"),1200);
-}
-function formatDate(y,m,d){
-  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  setTimeout(()=>t.classList.remove("show"),2000);
 }
 
-/* ===== LOAD ===== */
-async function load(){
-  const y=current.getFullYear(),m=current.getMonth();
-  const start=formatDate(y,m,1);
-  const end=formatDate(y,m,new Date(y,m+1,0).getDate());
-  const {data}=await supabaseClient.from("tasks")
-    .select("*").gte("task_date",start).lte("task_date",end)
-    .order("sort_order",{ascending:true});
-  cache={};
-  (data||[]).forEach(t=>{
-    const d=+t.task_date.slice(8,10);
-    (cache[d]??=[]).push(t);
+/* ===== SAVE ===== */
+function save(){
+  localStorage.setItem("tasks",JSON.stringify(tasks));
+}
+
+/* ===== ADD ===== */
+function addTask(){
+  const name=taskName.value.trim();
+  if(!name) return;
+
+  if(tasks.some(t=>t.name===name)){
+    toast("⚠ Task trùng – không thể thêm");
+    return;
+  }
+
+  tasks.push({
+    id:Date.now(),
+    name,
+    assign,
+    date:taskDate.value,
+    done:false,
+    color:"color-"+(Math.floor(Math.random()*4)+1)
   });
+  save();
+  render();
+  toast("✅ Task added");
 }
 
-/* ===== RENDER ===== */
-function renderCalendarOnly(){
-  calendar.innerHTML="";
-  title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
-  const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
-  const offset=(new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
-  for(let i=0;i<offset;i++)calendar.appendChild(document.createElement("div"));
+/* ===== DELETE ===== */
+function delTask(id){
+  if(prompt("Nhập mã chỉnh sửa")!==SECRET_CODE) return;
+  tasks=tasks.filter(t=>t.id!==id);
+  save();
+  render();
+  toast("🗑 Task deleted");
+}
 
-  for(let d=1;d<=days;d++){
-    const day=document.createElement("div");
-    day.className="day";
-    day.innerHTML=`<div class="day-number">${d}</div>`;
-
-    let tasks=[...(cache[d]||[])];
-
-    if(filterPerson.value){
-      tasks=tasks.filter(t=>t.person===filterPerson.value);
-    }
-
-    if(viewMode.value==="assign"){
-      tasks.sort((a,b)=>PEOPLE_ORDER.indexOf(a.person)-PEOPLE_ORDER.indexOf(b.person));
-    }
-
-    tasks.forEach(t=>{
-      const el=document.createElement("div");
-      el.className="task"+(t.done?" done":"")+(canEdit?"":" readonly");
-      el.style.background=PEOPLE[t.person];
-      el.draggable=canEdit;
-
-      el.ondragstart=()=>{
-        dragTask=t;
-        dragFromDay=d;
-        dragFromIndex=cache[d].indexOf(t);
-      };
-      el.ondragover=e=>canEdit&&e.preventDefault();
-      el.ondrop=e=>{
-        e.preventDefault();
-        reorderInDay(d,t);
-      };
-
-      if(canEdit) el.onclick=()=>toggleDone(t);
-
-      el.innerHTML=`<strong>${t.text}</strong>
-        <div class="task-type">${t.person} • ${t.type}</div>`;
-
-      const copy=document.createElement("span");
-      copy.className="copy-btn";
-      copy.textContent="📋";
-      copy.onclick=e=>{
-        e.stopPropagation();
-        navigator.clipboard.writeText(t.text);
-        toast("Copied!","#2e7d32");
-      };
-      el.appendChild(copy);
-
-      if(canEdit){
-        const del=document.createElement("span");
-        del.className="delete";
-        del.textContent="✖";
-        del.onclick=e=>{
-          e.stopPropagation();
-          removeTask(t.id);
-        };
-        el.appendChild(del);
-      }
-      day.appendChild(el);
-    });
-
-    if(canEdit){
-      const add=document.createElement("div");
-      add.className="add";
-      add.textContent="+ Add task";
-      add.onclick=()=>openModal(d);
-      day.appendChild(add);
-      day.ondragover=e=>e.preventDefault();
-      day.ondrop=()=>dropToOtherDay(d);
-    }
-    calendar.appendChild(day);
+/* ===== EDIT ===== */
+function editTask(id){
+  if(prompt("Nhập mã chỉnh sửa")!==SECRET_CODE) return;
+  const t=tasks.find(t=>t.id===id);
+  const n=prompt("Edit task name",t.name);
+  if(n){
+    t.name=n;
+    save();
+    render();
+    toast("✏ Task updated");
   }
 }
 
-async function render(){await load();renderCalendarOnly();}
-
-/* ===== DRAG ===== */
-async function reorderInDay(day,target){
-  if(!dragTask||day!==dragFromDay)return;
-  const list=cache[day];
-  const from=dragFromIndex;
-  const to=list.indexOf(target);
-  if(from===to)return;
-  list.splice(from,1);
-  list.splice(to,0,dragTask);
-  list.forEach((t,i)=>t.sort_order=i);
-  renderCalendarOnly();
-  await Promise.all(list.map(t=>
-    supabaseClient.from("tasks").update({sort_order:t.sort_order}).eq("id",t.id)
-  ));
-  dragTask=null;
-}
-async function dropToOtherDay(day){
-  if(!dragTask||day===dragFromDay)return;
-  cache[dragFromDay]=cache[dragFromDay].filter(t=>t!==dragTask);
-  dragTask.task_date=formatDate(current.getFullYear(),current.getMonth(),day);
-  (cache[day]??=[]).push(dragTask);
-  cache[day].forEach((t,i)=>t.sort_order=i);
-  renderCalendarOnly();
-  await supabaseClient.from("tasks")
-    .update({task_date:dragTask.task_date,sort_order:dragTask.sort_order})
-    .eq("id",dragTask.id);
-  dragTask=null;
-}
-
-/* ===== ACTIONS ===== */
-function unlockEdit(){
-  if(editCode.value===EDIT_CODE){
-    canEdit=true;localStorage.setItem("canEdit","1");
-    toast("Edit unlocked","#2e7d32");renderCalendarOnly();
-  }else toast("Wrong code","#b71c1c");
-}
-async function saveTask(){
-  if(!canEdit||!selectedDay||!taskText.value)return;
-  const exists=(cache[selectedDay]||[]).some(t=>t.text===taskText.value);
-  if(exists){toast("Task trùng!","#b71c1c");return;}
-  const task={
-    task_date:formatDate(current.getFullYear(),current.getMonth(),selectedDay),
-    text:taskText.value,
-    person:taskPerson.value,
-    type:taskType.value,
-    done:false,
-    sort_order:(cache[selectedDay]?.length||0)
-  };
-  (cache[selectedDay]??=[]).push(task);
-  renderCalendarOnly();closeModal();
-  await supabaseClient.from("tasks").insert(task);
-}
-async function toggleDone(t){
+/* ===== DONE ===== */
+function toggleDone(id){
+  const t=tasks.find(t=>t.id===id);
   t.done=!t.done;
-  renderCalendarOnly();
-  await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
-}
-async function removeTask(id){
-  Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(t=>t.id!==id));
-  renderCalendarOnly();
-  await supabaseClient.from("tasks").delete().eq("id",id);
+  save();
+  render();
 }
 
-/* ===== UI ===== */
-function openModal(d){selectedDay=d;modal.style.display="flex";}
-function closeModal(e){if(!e||e.target===modal)modal.style.display="none";}
-function changeMonth(n){current.setMonth(current.getMonth()+n);render();}
+/* ===== RENDER ===== */
+function render(){
+  const cal=document.getElementById("calendar");
+  cal.innerHTML="";
+  const map={};
+
+  tasks.forEach(t=>{
+    if(filterPerson.value && t.assign!==filterPerson.value) return;
+    if(!map[t.date]) map[t.date]=[];
+    map[t.date].push(t);
+  });
+
+  Object.keys(map).forEach(date=>{
+    const d=document.createElement("div");
+    d.className="day";
+    d.innerHTML=`<h4>${date}</h4>`;
+    const list=document.createElement("div");
+    list.className="task-list";
+
+    let arr=map[date];
+    if(viewMode.value==="assign"){
+      arr.sort((a,b)=>PEOPLE_ORDER.indexOf(a.assign)-PEOPLE_ORDER.indexOf(b.assign));
+    }
+
+    arr.forEach(t=>{
+      const el=document.createElement("div");
+      el.className=`task ${t.color} ${t.done?"done":""}`;
+      el.innerHTML=`
+        ${t.name} (${t.assign})
+        <div class="actions">
+          <span onclick="toggleDone(${t.id})">✔</span>
+          <span onclick="editTask(${t.id})">✏</span>
+          <span onclick="delTask(${t.id})">🗑</span>
+        </div>`;
+      list.appendChild(el);
+    });
+
+    new Sortable(list,{
+      animation:150,
+      onEnd:()=>{
+        save();
+        toast("↕ Order saved");
+      }
+    });
+
+    d.appendChild(list);
+    cal.appendChild(d);
+  });
+}
 
 /* ===== INIT ===== */
-Object.keys(PEOPLE).forEach(p=>{
-  taskPerson.innerHTML+=`<option>${p}</option>`;
-  filterPerson.innerHTML+=`<option>${p}</option>`;
-});
-TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
-
-filterPerson.onchange = renderCalendarOnly;
-viewMode.onchange = renderCalendarOnly;
-
-/* ép render theo assign ngay từ đầu */
-viewMode.value = "assign";
-
-render();
-
-
-supabaseClient.channel("tasks-rt")
-  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
-  .subscribe();
-
 render();
 </script>
+
 </body>
 </html>
-
