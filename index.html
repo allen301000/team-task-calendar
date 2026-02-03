@@ -59,7 +59,15 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
 .modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
-.modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px}
+
+.modal-box input,.modal-box select{
+  width:100%;
+  margin-bottom:8px;
+  padding:6px;
+  background:#1f2228;
+  color:#fff;
+  border:1px solid #333
+}
 
 .filter-bar{display:flex;gap:8px;padding:8px 16px}
 .filter-bar select{background:#1f2228;color:#fff;border:none;padding:6px}
@@ -86,6 +94,32 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   background:#2e7d32;border:none;
   color:#fff;padding:6px 10px;cursor:pointer
 }
+
+/* ===== STATS ===== */
+.stats-btn{
+  position:fixed;
+  right:14px;
+  bottom:14px;
+  background:#1f2228;
+  color:#fff;
+  border:none;
+  border-radius:50%;
+  width:44px;
+  height:44px;
+  cursor:pointer;
+  font-size:18px;
+  box-shadow:0 4px 10px rgba(0,0,0,.4);
+}
+
+.stats-modal .modal-box{width:320px}
+.stats-title{margin:10px 0 6px;font-size:13px;opacity:.8}
+.stats-item{
+  display:flex;
+  justify-content:space-between;
+  font-size:13px;
+  margin-bottom:4px;
+}
+hr{border:0;border-top:1px solid #333;margin:8px 0}
 </style>
 </head>
 
@@ -114,12 +148,23 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 <div class="calendar" id="calendar"></div>
 
+<!-- ADD TASK MODAL -->
 <div class="modal" id="modal" onclick="closeModal(event)">
   <div class="modal-box">
     <input id="taskText" placeholder="Task name">
     <select id="taskPerson"></select>
     <select id="taskType"></select>
     <button onclick="saveTask()">Add Task</button>
+  </div>
+</div>
+
+<!-- STATS -->
+<button class="stats-btn" onclick="openStats()">📊</button>
+
+<div class="modal stats-modal" id="statsModal" onclick="closeStats(event)">
+  <div class="modal-box">
+    <h3 style="margin:0">📊 Monthly Stats</h3>
+    <div id="statsContent"></div>
   </div>
 </div>
 
@@ -150,7 +195,6 @@ let current=new Date();
 let selectedDay=null;
 let cache={};
 let canEdit=localStorage.getItem("canEdit")==="1";
-let activePersonFilter="";
 let dragTask=null,dragFromDay=null,dragFromIndex=null;
 
 /* ===== HELPERS ===== */
@@ -181,6 +225,8 @@ async function load(){
 }
 
 /* ===== RENDER ===== */
+async function render(){await load();renderCalendarOnly();}
+
 function renderCalendarOnly(){
   calendar.innerHTML="";
   title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
@@ -194,11 +240,7 @@ function renderCalendarOnly(){
     day.innerHTML=`<div class="day-number">${d}</div>`;
 
     let tasks=[...(cache[d]||[])];
-
-    if(filterPerson.value){
-      tasks=tasks.filter(t=>t.person===filterPerson.value);
-    }
-
+    if(filterPerson.value) tasks=tasks.filter(t=>t.person===filterPerson.value);
     if(viewMode.value==="assign"){
       tasks.sort((a,b)=>PEOPLE_ORDER.indexOf(a.person)-PEOPLE_ORDER.indexOf(b.person));
     }
@@ -210,15 +252,10 @@ function renderCalendarOnly(){
       el.draggable=canEdit;
 
       el.ondragstart=()=>{
-        dragTask=t;
-        dragFromDay=d;
-        dragFromIndex=cache[d].indexOf(t);
+        dragTask=t;dragFromDay=d;dragFromIndex=cache[d].indexOf(t);
       };
       el.ondragover=e=>canEdit&&e.preventDefault();
-      el.ondrop=e=>{
-        e.preventDefault();
-        reorderInDay(d,t);
-      };
+      el.ondrop=e=>{e.preventDefault();reorderInDay(d,t);};
 
       if(canEdit) el.onclick=()=>toggleDone(t);
 
@@ -261,14 +298,11 @@ function renderCalendarOnly(){
   }
 }
 
-async function render(){await load();renderCalendarOnly();}
-
 /* ===== DRAG ===== */
 async function reorderInDay(day,target){
   if(!dragTask||day!==dragFromDay)return;
   const list=cache[day];
-  const from=dragFromIndex;
-  const to=list.indexOf(target);
+  const from=dragFromIndex,to=list.indexOf(target);
   if(from===to)return;
   list.splice(from,1);
   list.splice(to,0,dragTask);
@@ -279,6 +313,7 @@ async function reorderInDay(day,target){
   ));
   dragTask=null;
 }
+
 async function dropToOtherDay(day){
   if(!dragTask||day===dragFromDay)return;
   cache[dragFromDay]=cache[dragFromDay].filter(t=>t!==dragTask);
@@ -299,10 +334,12 @@ function unlockEdit(){
     toast("Edit unlocked","#2e7d32");renderCalendarOnly();
   }else toast("Wrong code","#b71c1c");
 }
+
 async function saveTask(){
   if(!canEdit||!selectedDay||!taskText.value)return;
-  const exists=(cache[selectedDay]||[]).some(t=>t.text===taskText.value);
-  if(exists){toast("Task trùng!","#b71c1c");return;}
+  if((cache[selectedDay]||[]).some(t=>t.text===taskText.value)){
+    toast("Task trùng!","#b71c1c");return;
+  }
   const task={
     task_date:formatDate(current.getFullYear(),current.getMonth(),selectedDay),
     text:taskText.value,
@@ -314,16 +351,50 @@ async function saveTask(){
   (cache[selectedDay]??=[]).push(task);
   renderCalendarOnly();closeModal();
   await supabaseClient.from("tasks").insert(task);
+  toast("Task added","#2e7d32");
 }
+
 async function toggleDone(t){
   t.done=!t.done;
   renderCalendarOnly();
   await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
+  toast("Task updated","#2e7d32");
 }
+
 async function removeTask(id){
   Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(t=>t.id!==id));
   renderCalendarOnly();
   await supabaseClient.from("tasks").delete().eq("id",id);
+  toast("Task deleted","#b71c1c");
+}
+
+/* ===== STATS ===== */
+function openStats(){
+  const byType={},byPerson={};
+  let total=0;
+  Object.values(cache).flat().forEach(t=>{
+    total++;
+    byType[t.type]=(byType[t.type]||0)+1;
+    byPerson[t.person]=(byPerson[t.person]||0)+1;
+  });
+
+  let html=`<div class="stats-item"><strong>Total</strong><strong>${total}</strong></div><hr>`;
+
+  html+=`<div class="stats-title">By type</div>`;
+  TYPES.forEach(t=>{
+    html+=`<div class="stats-item"><span>${t}</span><strong>${byType[t]||0}</strong></div>`;
+  });
+
+  html+=`<hr><div class="stats-title">By person</div>`;
+  PEOPLE_ORDER.forEach(p=>{
+    html+=`<div class="stats-item"><span>${p}</span><strong>${byPerson[p]||0}</strong></div>`;
+  });
+
+  statsContent.innerHTML=html;
+  statsModal.style.display="flex";
+}
+function closeStats(e){
+  if(!e||e.target===statsModal)statsModal.style.display="none";
 }
 
 /* ===== UI ===== */
@@ -338,20 +409,15 @@ Object.keys(PEOPLE).forEach(p=>{
 });
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
 
-filterPerson.onchange = renderCalendarOnly;
-viewMode.onchange = renderCalendarOnly;
-
-/* ép render theo assign ngay từ đầu */
-viewMode.value = "assign";
+filterPerson.onchange=renderCalendarOnly;
+viewMode.onchange=renderCalendarOnly;
+viewMode.value="assign";
 
 render();
-
 
 supabaseClient.channel("tasks-rt")
   .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
   .subscribe();
-
-render();
 </script>
 </body>
 </html>
