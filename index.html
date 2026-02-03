@@ -6,6 +6,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
+/* ===== CORE UI ===== */
 body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
 header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
 header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
@@ -39,7 +40,6 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   border-radius:10px;
 }
 .task.done strong{text-decoration:line-through}
-
 .task-type{font-size:10px;opacity:.8}
 
 .delete,.copy-btn{
@@ -65,10 +65,10 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 .filter-bar select{background:#1f2228;color:#fff;border:none;padding:6px}
 
 .toast{
-  position:fixed;bottom:60px;left:50%;
+  position:fixed;bottom:50px;left:50%;
   transform:translateX(-50%);
   background:#333;color:#fff;
-  padding:10px 16px;border-radius:8px;
+  padding:8px 14px;border-radius:6px;
   font-size:12px;opacity:0;transition:.25s;
 }
 .toast.show{opacity:1}
@@ -86,20 +86,6 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   background:#2e7d32;border:none;
   color:#fff;padding:6px 10px;cursor:pointer
 }
-
-.stats-btn{
-  position:fixed;bottom:80px;right:12px;
-  background:#1f2228;color:#fff;
-  padding:8px 12px;border-radius:20px;
-  cursor:pointer;font-size:12px
-}
-.stats-panel{
-  position:fixed;bottom:130px;right:12px;
-  background:#1b1d22;padding:14px;
-  border-radius:10px;width:240px;
-  display:none;font-size:12px
-}
-.stats-panel h4{margin:6px 0;border-bottom:1px solid #333;padding-bottom:4px}
 </style>
 </head>
 
@@ -139,9 +125,6 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 <div class="toast" id="toast"></div>
 
-<div class="stats-btn" onclick="toggleStats()">📊 Stats</div>
-<div class="stats-panel" id="stats"></div>
-
 <div class="edit-bar">
   <input id="editCode" placeholder="Edit code">
   <button onclick="unlockEdit()">Unlock</button>
@@ -156,21 +139,7 @@ const supabaseClient=supabase.createClient(
   "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
 );
 
-/* ===== TELEGRAM ===== */
-const TELEGRAM_BOT_TOKEN="8329365903:AAHspR6T110Mx3E3Lb9WW_GrYb1eBbfWFbM";
-const TELEGRAM_USERS={
-  Allen:843310853
-};
-function sendTelegram(person,msg){
-  if(!TELEGRAM_USERS[person])return;
-  fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({chat_id:TELEGRAM_USERS[person],text:msg,parse_mode:"HTML"})
-  });
-}
-
-/* ===== DATA ===== */
+/* ===== PEOPLE ===== */
 const PEOPLE_ORDER=["Tony","Davis","Alex","Lucas","Allen","Hayden","Leo","Dante"];
 const PEOPLE={
   Tony:"#ff8a80",Allen:"#90caf9",Davis:"#b39ddb",Alex:"#ffe082",
@@ -188,9 +157,10 @@ let dragTask=null,dragFromDay=null,dragFromIndex=null;
 /* ===== HELPERS ===== */
 function toast(msg,color="#333"){
   const t=document.getElementById("toast");
-  t.textContent=msg;t.style.background=color;
+  t.textContent=msg;
+  t.style.background=color;
   t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"),1400);
+  setTimeout(()=>t.classList.remove("show"),1200);
 }
 function formatDate(y,m,d){
   return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
@@ -201,7 +171,8 @@ async function load(){
   const y=current.getFullYear(),m=current.getMonth();
   const start=formatDate(y,m,1);
   const end=formatDate(y,m,new Date(y,m+1,0).getDate());
-  const {data}=await supabaseClient.from("tasks")
+  const {data}=await supabaseClient
+    .from("tasks")
     .select("*")
     .gte("task_date",start)
     .lte("task_date",end)
@@ -225,11 +196,18 @@ function renderCalendarOnly(){
     const day=document.createElement("div");
     day.className="day";
     day.innerHTML=`<div class="day-number">${d}</div>`;
+
     let tasks=[...(cache[d]||[])];
 
-    if(filterPerson.value)tasks=tasks.filter(t=>t.person===filterPerson.value);
-    if(viewMode.value==="assign")
-      tasks.sort((a,b)=>PEOPLE_ORDER.indexOf(a.person)-PEOPLE_ORDER.indexOf(b.person));
+    if(filterPerson.value){
+      tasks=tasks.filter(t=>t.person===filterPerson.value);
+    }
+
+    if(viewMode.value==="assign"){
+      tasks.sort((a,b)=>
+        PEOPLE_ORDER.indexOf(a.person)-PEOPLE_ORDER.indexOf(b.person)
+      );
+    }
 
     tasks.forEach(t=>{
       const el=document.createElement("div");
@@ -237,35 +215,22 @@ function renderCalendarOnly(){
       el.style.background=PEOPLE[t.person];
       el.draggable=canEdit;
 
-      el.ondragstart=()=>{dragTask=t;dragFromDay=d;dragFromIndex=cache[d].indexOf(t)};
+      el.ondragstart=()=>{
+        dragTask=t;
+        dragFromDay=d;
+        dragFromIndex=cache[d].indexOf(t);
+      };
       el.ondragover=e=>canEdit&&e.preventDefault();
-      el.ondrop=e=>{e.preventDefault();reorderInDay(d,t)};
+      el.ondrop=e=>{
+        e.preventDefault();
+        reorderInDay(d,t);
+      };
 
-      if(canEdit)el.onclick=()=>toggleDone(t);
+      if(canEdit) el.onclick=()=>toggleDone(t);
 
       el.innerHTML=`<strong>${t.text}</strong>
         <div class="task-type">${t.person} • ${t.type}</div>`;
 
-      const copy=document.createElement("span");
-      copy.className="copy-btn";
-      copy.textContent="📋";
-      copy.onclick=e=>{
-        e.stopPropagation();
-        navigator.clipboard.writeText(t.text);
-        toast("Copied!","#2e7d32");
-      };
-      el.appendChild(copy);
-
-      if(canEdit){
-        const del=document.createElement("span");
-        del.className="delete";
-        del.textContent="✖";
-        del.onclick=e=>{
-          e.stopPropagation();
-          removeTask(t);
-        };
-        el.appendChild(del);
-      }
       day.appendChild(el);
     });
 
@@ -275,52 +240,36 @@ function renderCalendarOnly(){
       add.textContent="+ Add task";
       add.onclick=()=>openModal(d);
       day.appendChild(add);
-      day.ondragover=e=>e.preventDefault();
-      day.ondrop=()=>dropToOtherDay(d);
     }
     calendar.appendChild(day);
   }
-  renderStats();
 }
+
 async function render(){await load();renderCalendarOnly();}
 
-/* ===== DRAG ===== */
+/* ===== DRAG SORT ===== */
 async function reorderInDay(day,target){
   if(!dragTask||day!==dragFromDay)return;
   const list=cache[day];
-  list.splice(dragFromIndex,1);
-  list.splice(list.indexOf(target),0,dragTask);
+  const from=dragFromIndex;
+  const to=list.indexOf(target);
+  if(from===to)return;
+  list.splice(from,1);
+  list.splice(to,0,dragTask);
   list.forEach((t,i)=>t.sort_order=i);
   renderCalendarOnly();
   await Promise.all(list.map(t=>
     supabaseClient.from("tasks").update({sort_order:t.sort_order}).eq("id",t.id)
   ));
-}
-async function dropToOtherDay(day){
-  if(!dragTask||day===dragFromDay)return;
-  cache[dragFromDay]=cache[dragFromDay].filter(t=>t!==dragTask);
-  dragTask.task_date=formatDate(current.getFullYear(),current.getMonth(),day);
-  (cache[day]??=[]).push(dragTask);
-  cache[day].forEach((t,i)=>t.sort_order=i);
-  renderCalendarOnly();
-  await supabaseClient.from("tasks")
-    .update({task_date:dragTask.task_date,sort_order:dragTask.sort_order})
-    .eq("id",dragTask.id);
+  dragTask=null;
 }
 
 /* ===== ACTIONS ===== */
-function unlockEdit(){
-  if(editCode.value===EDIT_CODE){
-    canEdit=true;localStorage.setItem("canEdit","1");
-    toast("Edit unlocked","#2e7d32");
-    renderCalendarOnly();
-  }else toast("Wrong code","#b71c1c");
-}
 async function saveTask(){
   if(!canEdit||!selectedDay||!taskText.value)return;
-  if((cache[selectedDay]||[]).some(t=>t.text===taskText.value)){
-    toast("Task trùng!","#b71c1c");return;
-  }
+  const exists=(cache[selectedDay]||[]).some(t=>t.text===taskText.value);
+  if(exists){toast("Task trùng!","#b71c1c");return;}
+
   const task={
     task_date:formatDate(current.getFullYear(),current.getMonth(),selectedDay),
     text:taskText.value,
@@ -329,45 +278,49 @@ async function saveTask(){
     done:false,
     sort_order:(cache[selectedDay]?.length||0)
   };
-  (cache[selectedDay]??=[]).push(task);
-  renderCalendarOnly();closeModal();
-  await supabaseClient.from("tasks").insert(task);
-  sendTelegram(task.person,`🆕 <b>New Task</b>\n${task.text}\n📅 ${task.task_date}`);
-  toast("Task added","#2e7d32");
-}
-async function toggleDone(t){
-  t.done=!t.done;
-  renderCalendarOnly();
-  await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
-  if(t.done){
-    sendTelegram(t.person,`✅ <b>Completed</b>\n${t.text}`);
-    toast("Task completed","#1b5e20");
+
+  const {data,error}=await supabaseClient
+    .from("tasks")
+    .insert(task)
+    .select()
+    .single();
+
+  if(!error && data){
+    toast("Task added","#2e7d32");
+
+    /* 🔔 TELEGRAM NOTIFY */
+    fetch("https://letbykkygmmdxbmnemam.supabase.co/functions/v1/notify-telegram",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "apikey":supabaseClient.supabaseKey
+      },
+      body:JSON.stringify({
+        text:data.text,
+        person:data.person,
+        task_date:data.task_date,
+        type:data.type
+      })
+    });
   }
-}
-async function removeTask(t){
-  Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(x=>x!==t));
-  renderCalendarOnly();
-  await supabaseClient.from("tasks").delete().eq("id",t.id);
-  sendTelegram(t.person,`❌ <b>Removed</b>\n${t.text}`);
-  toast("Task removed","#b71c1c");
+
+  closeModal();
+  render();
 }
 
-/* ===== STATS ===== */
-function toggleStats(){
-  stats.style.display=stats.style.display==="block"?"none":"block";
+function toggleDone(t){
+  t.done=!t.done;
+  supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
+  renderCalendarOnly();
 }
-function renderStats(){
-  let byType={},byPerson={},total=0;
-  Object.values(cache).flat().forEach(t=>{
-    total++;
-    byType[t.type]=(byType[t.type]||0)+1;
-    byPerson[t.person]=(byPerson[t.person]||0)+1;
-  });
-  stats.innerHTML=`<h4>Total: ${total}</h4>
-    <h4>By Type</h4>`+
-    Object.entries(byType).map(([k,v])=>`${k}: ${v}`).join("<br>")+
-    `<h4>By Person</h4>`+
-    Object.entries(byPerson).map(([k,v])=>`${k}: ${v}`).join("<br>");
+
+function unlockEdit(){
+  if(editCode.value===EDIT_CODE){
+    canEdit=true;
+    localStorage.setItem("canEdit","1");
+    toast("Edit unlocked","#2e7d32");
+    renderCalendarOnly();
+  }else toast("Wrong code","#b71c1c");
 }
 
 /* ===== UI ===== */
@@ -381,8 +334,10 @@ Object.keys(PEOPLE).forEach(p=>{
   filterPerson.innerHTML+=`<option>${p}</option>`;
 });
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
+
 viewMode.value="assign";
-filterPerson.onchange=viewMode.onchange=renderCalendarOnly;
+filterPerson.onchange=renderCalendarOnly;
+viewMode.onchange=renderCalendarOnly;
 
 supabaseClient.channel("tasks-rt")
   .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
