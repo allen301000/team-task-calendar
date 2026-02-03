@@ -110,6 +110,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   font-size:18px;
   box-shadow:0 4px 10px rgba(0,0,0,.4);
 }
+
 .stats-modal .modal-box{width:320px}
 .stats-title{margin:10px 0 6px;font-size:13px;opacity:.8}
 .stats-item{
@@ -131,7 +132,9 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 </header>
 
 <div class="filter-bar">
-  <select id="filterPerson"><option value="">All people</option></select>
+  <select id="filterPerson">
+    <option value="">All people</option>
+  </select>
   <select id="viewMode">
     <option value="normal">Normal view</option>
     <option value="assign">View by assign order</option>
@@ -145,6 +148,7 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 
 <div class="calendar" id="calendar"></div>
 
+<!-- ADD TASK MODAL -->
 <div class="modal" id="modal" onclick="closeModal(event)">
   <div class="modal-box">
     <input id="taskText" placeholder="Task name">
@@ -154,6 +158,7 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
   </div>
 </div>
 
+<!-- STATS -->
 <button class="stats-btn" onclick="openStats()">📊</button>
 
 <div class="modal stats-modal" id="statsModal" onclick="closeStats(event)">
@@ -173,15 +178,6 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 <script>
 /* ===== CONFIG ===== */
 const EDIT_CODE="TEAM2026";
-const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbzdmGBL41eINkMHlGYFOYUrDdwJB_BFk3j_zplK5kOgXsHKFu9iW2xvSocK5wfKz4DzAw/exec";
-
-function notifyTelegram(person,message){
-  fetch(TELEGRAM_WEBHOOK,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({person,message})
-  }).catch(()=>{});
-}
 
 const supabaseClient=supabase.createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
@@ -204,7 +200,8 @@ let dragTask=null,dragFromDay=null,dragFromIndex=null;
 /* ===== HELPERS ===== */
 function toast(msg,color="#333"){
   const t=document.getElementById("toast");
-  t.textContent=msg;t.style.background=color;
+  t.textContent=msg;
+  t.style.background=color;
   t.classList.add("show");
   setTimeout(()=>t.classList.remove("show"),1200);
 }
@@ -212,7 +209,7 @@ function formatDate(y,m,d){
   return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 
-/* ===== LOAD + RENDER ===== */
+/* ===== LOAD ===== */
 async function load(){
   const y=current.getFullYear(),m=current.getMonth();
   const start=formatDate(y,m,1);
@@ -226,6 +223,8 @@ async function load(){
     (cache[d]??=[]).push(t);
   });
 }
+
+/* ===== RENDER ===== */
 async function render(){await load();renderCalendarOnly();}
 
 function renderCalendarOnly(){
@@ -241,7 +240,7 @@ function renderCalendarOnly(){
     day.innerHTML=`<div class="day-number">${d}</div>`;
 
     let tasks=[...(cache[d]||[])];
-    if(filterPerson.value)tasks=tasks.filter(t=>t.person===filterPerson.value);
+    if(filterPerson.value) tasks=tasks.filter(t=>t.person===filterPerson.value);
     if(viewMode.value==="assign"){
       tasks.sort((a,b)=>PEOPLE_ORDER.indexOf(a.person)-PEOPLE_ORDER.indexOf(b.person));
     }
@@ -252,21 +251,44 @@ function renderCalendarOnly(){
       el.style.background=PEOPLE[t.person];
       el.draggable=canEdit;
 
-      el.ondragstart=()=>{dragTask=t;dragFromDay=d;dragFromIndex=cache[d].indexOf(t);}
+      el.ondragstart=()=>{
+        dragTask=t;dragFromDay=d;dragFromIndex=cache[d].indexOf(t);
+      };
       el.ondragover=e=>canEdit&&e.preventDefault();
-      el.ondrop=e=>{e.preventDefault();reorderInDay(d,t);}
+      el.ondrop=e=>{e.preventDefault();reorderInDay(d,t);};
 
-      if(canEdit)el.onclick=()=>toggleDone(t);
+      if(canEdit) el.onclick=()=>toggleDone(t);
 
-      el.innerHTML=`<strong>Project: ${t.text}</strong>
+      el.innerHTML=`<strong>${t.text}</strong>
         <div class="task-type">${t.person} • ${t.type}</div>`;
 
+      const copy=document.createElement("span");
+      copy.className="copy-btn";
+      copy.textContent="📋";
+      copy.onclick=e=>{
+        e.stopPropagation();
+        navigator.clipboard.writeText(t.text);
+        toast("Copied!","#2e7d32");
+      };
+      el.appendChild(copy);
+
+      if(canEdit){
+        const del=document.createElement("span");
+        del.className="delete";
+        del.textContent="✖";
+        del.onclick=e=>{
+          e.stopPropagation();
+          removeTask(t.id);
+        };
+        el.appendChild(del);
+      }
       day.appendChild(el);
     });
 
     if(canEdit){
       const add=document.createElement("div");
-      add.className="add";add.textContent="+ Add task";
+      add.className="add";
+      add.textContent="+ Add task";
       add.onclick=()=>openModal(d);
       day.appendChild(add);
       day.ondragover=e=>e.preventDefault();
@@ -276,7 +298,43 @@ function renderCalendarOnly(){
   }
 }
 
+/* ===== DRAG ===== */
+async function reorderInDay(day,target){
+  if(!dragTask||day!==dragFromDay)return;
+  const list=cache[day];
+  const from=dragFromIndex,to=list.indexOf(target);
+  if(from===to)return;
+  list.splice(from,1);
+  list.splice(to,0,dragTask);
+  list.forEach((t,i)=>t.sort_order=i);
+  renderCalendarOnly();
+  await Promise.all(list.map(t=>
+    supabaseClient.from("tasks").update({sort_order:t.sort_order}).eq("id",t.id)
+  ));
+  dragTask=null;
+}
+
+async function dropToOtherDay(day){
+  if(!dragTask||day===dragFromDay)return;
+  cache[dragFromDay]=cache[dragFromDay].filter(t=>t!==dragTask);
+  dragTask.task_date=formatDate(current.getFullYear(),current.getMonth(),day);
+  (cache[day]??=[]).push(dragTask);
+  cache[day].forEach((t,i)=>t.sort_order=i);
+  renderCalendarOnly();
+  await supabaseClient.from("tasks")
+    .update({task_date:dragTask.task_date,sort_order:dragTask.sort_order})
+    .eq("id",dragTask.id);
+  dragTask=null;
+}
+
 /* ===== ACTIONS ===== */
+function unlockEdit(){
+  if(editCode.value===EDIT_CODE){
+    canEdit=true;localStorage.setItem("canEdit","1");
+    toast("Edit unlocked","#2e7d32");renderCalendarOnly();
+  }else toast("Wrong code","#b71c1c");
+}
+
 async function saveTask(){
   if(!canEdit||!selectedDay||!taskText.value)return;
   if((cache[selectedDay]||[]).some(t=>t.text===taskText.value)){
@@ -293,7 +351,6 @@ async function saveTask(){
   (cache[selectedDay]??=[]).push(task);
   renderCalendarOnly();closeModal();
   await supabaseClient.from("tasks").insert(task);
-  notifyTelegram(task.person,`🆕 NEW TASK\nProject: ${task.text}\nDate: ${task.task_date}`);
   toast("Task added","#2e7d32");
 }
 
@@ -301,45 +358,49 @@ async function toggleDone(t){
   t.done=!t.done;
   renderCalendarOnly();
   await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
-  notifyTelegram(t.person,`${t.done?"✅ DONE":"♻️ REOPEN"}\nProject: ${t.text}`);
+  toast("Task updated","#2e7d32");
 }
 
-async function dropToOtherDay(day){
-  if(!dragTask||day===dragFromDay)return;
-  cache[dragFromDay]=cache[dragFromDay].filter(t=>t!==dragTask);
-  dragTask.task_date=formatDate(current.getFullYear(),current.getMonth(),day);
-  (cache[day]??=[]).push(dragTask);
+async function removeTask(id){
+  Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(t=>t.id!==id));
   renderCalendarOnly();
-  await supabaseClient.from("tasks")
-    .update({task_date:dragTask.task_date}).eq("id",dragTask.id);
-  notifyTelegram(dragTask.person,`📅 MOVED\nProject: ${dragTask.text}\nNew date: ${dragTask.task_date}`);
+  await supabaseClient.from("tasks").delete().eq("id",id);
+  toast("Task deleted","#b71c1c");
 }
 
 /* ===== STATS ===== */
 function openStats(){
-  const byType={},byPerson={};let total=0;
+  const byType={},byPerson={};
+  let total=0;
   Object.values(cache).flat().forEach(t=>{
-    total++;byType[t.type]=(byType[t.type]||0)+1;
+    total++;
+    byType[t.type]=(byType[t.type]||0)+1;
     byPerson[t.person]=(byPerson[t.person]||0)+1;
   });
+
   let html=`<div class="stats-item"><strong>Total</strong><strong>${total}</strong></div><hr>`;
+
   html+=`<div class="stats-title">By type</div>`;
-  TYPES.forEach(t=>html+=`<div class="stats-item"><span>${t}</span><strong>${byType[t]||0}</strong></div>`);
+  TYPES.forEach(t=>{
+    html+=`<div class="stats-item"><span>${t}</span><strong>${byType[t]||0}</strong></div>`;
+  });
+
   html+=`<hr><div class="stats-title">By person</div>`;
-  PEOPLE_ORDER.forEach(p=>html+=`<div class="stats-item"><span>${p}</span><strong>${byPerson[p]||0}</strong></div>`);
+  PEOPLE_ORDER.forEach(p=>{
+    html+=`<div class="stats-item"><span>${p}</span><strong>${byPerson[p]||0}</strong></div>`;
+  });
+
   statsContent.innerHTML=html;
   statsModal.style.display="flex";
 }
-function closeStats(e){if(!e||e.target===statsModal)statsModal.style.display="none";}
+function closeStats(e){
+  if(!e||e.target===statsModal)statsModal.style.display="none";
+}
+
+/* ===== UI ===== */
 function openModal(d){selectedDay=d;modal.style.display="flex";}
 function closeModal(e){if(!e||e.target===modal)modal.style.display="none";}
 function changeMonth(n){current.setMonth(current.getMonth()+n);render();}
-function unlockEdit(){
-  if(editCode.value===EDIT_CODE){
-    canEdit=true;localStorage.setItem("canEdit","1");
-    toast("Edit unlocked","#2e7d32");renderCalendarOnly();
-  }else toast("Wrong code","#b71c1c");
-}
 
 /* ===== INIT ===== */
 Object.keys(PEOPLE).forEach(p=>{
@@ -347,9 +408,11 @@ Object.keys(PEOPLE).forEach(p=>{
   filterPerson.innerHTML+=`<option>${p}</option>`;
 });
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
+
 filterPerson.onchange=renderCalendarOnly;
 viewMode.onchange=renderCalendarOnly;
 viewMode.value="assign";
+
 render();
 
 supabaseClient.channel("tasks-rt")
