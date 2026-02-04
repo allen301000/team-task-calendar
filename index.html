@@ -11,6 +11,7 @@ body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
 header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
 header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
 
+/* ===== CALENDAR ===== */
 .weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
 .weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
 
@@ -28,7 +29,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   color:#000;
 }
 .task.readonly{cursor:default;opacity:.85}
-.task.done{opacity:.45;filter:grayscale(.15)}
+.task.done{opacity:.45}
 .task.done::after{
   content:"Completed";
   position:absolute;
@@ -41,8 +42,10 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   border-radius:10px;
 }
 .task.done strong{text-decoration:line-through}
+
 .task-type{font-size:10px;opacity:.8}
 
+/* ===== ACTION ICONS ===== */
 .delete,.copy-btn{
   position:absolute;
   bottom:2px;
@@ -55,15 +58,21 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 .task:hover .delete,
 .task:hover .copy-btn{opacity:1}
 
+/* ===== ADD ===== */
 .add{opacity:.5;cursor:pointer;font-size:11px}
 .add:hover{opacity:1}
 
 /* ===== MODAL ===== */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
 .modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
+
 .modal-box input,.modal-box select{
-  width:100%;margin-bottom:8px;padding:6px;
-  background:#1f2228;color:#fff;border:1px solid #333
+  width:100%;
+  margin-bottom:8px;
+  padding:6px;
+  background:#1f2228;
+  color:#fff;
+  border:1px solid #333
 }
 
 /* ===== FILTER ===== */
@@ -80,7 +89,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 }
 .toast.show{opacity:1}
 
-/* ===== EDIT BAR ===== */
+/* ===== EDIT ===== */
 .edit-bar{
   position:fixed;bottom:10px;left:50%;
   transform:translateX(-50%);
@@ -97,18 +106,26 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 /* ===== STATS ===== */
 .stats-btn{
-  position:fixed;right:14px;bottom:14px;
-  background:#1f2228;color:#fff;
-  border:none;border-radius:50%;
-  width:44px;height:44px;
-  cursor:pointer;font-size:18px;
+  position:fixed;
+  right:14px;
+  bottom:14px;
+  background:#1f2228;
+  color:#fff;
+  border:none;
+  border-radius:50%;
+  width:44px;
+  height:44px;
+  cursor:pointer;
+  font-size:18px;
   box-shadow:0 4px 10px rgba(0,0,0,.4);
 }
 .stats-modal .modal-box{width:320px}
 .stats-title{margin:10px 0 6px;font-size:13px;opacity:.8}
 .stats-item{
-  display:flex;justify-content:space-between;
-  font-size:13px;margin-bottom:4px;
+  display:flex;
+  justify-content:space-between;
+  font-size:13px;
+  margin-bottom:4px;
 }
 hr{border:0;border-top:1px solid #333;margin:8px 0}
 </style>
@@ -139,10 +156,10 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 
 <div class="calendar" id="calendar"></div>
 
-<!-- ADD TASK -->
+<!-- ADD TASK MODAL -->
 <div class="modal" id="modal" onclick="closeModal(event)">
   <div class="modal-box">
-    <input id="taskText" placeholder="Task name">
+    <input id="taskText" placeholder="Project: Task name">
     <select id="taskPerson"></select>
     <select id="taskType"></select>
     <button onclick="saveTask()">Add Task</button>
@@ -151,6 +168,7 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 
 <!-- STATS -->
 <button class="stats-btn" onclick="openStats()">📊</button>
+
 <div class="modal stats-modal" id="statsModal" onclick="closeStats(event)">
   <div class="modal-box">
     <h3 style="margin:0">📊 Monthly Stats</h3>
@@ -167,13 +185,12 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 
 <script>
 /* ================= CONFIG ================= */
-const EDIT_CODE = "TEAM2026";
+const EDIT_CODE="TEAM2026";
 
-/* 🔔 TELEGRAM VIA GOOGLE APP SCRIPT (ẨN TOKEN) */
-const GAS_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbzdmGBL41eINkMHlGYFOYUrDdwJB_BFk3j_zplK5kOgXsHKFu9iW2xvSocK5wfKz4DzAw/exec";
+/* 🔔 GOOGLE APP SCRIPT URL */
+const GAS_URL="https://script.google.com/macros/s/AKfycbzdmGBL41eINkMHlGYFOYUrDdwJB_BFk3j_zplK5kOgXsHKFu9iW2xvSocK5wfKz4DzAw/exec";
 
-/* SUPABASE */
-const supabaseClient = supabase.createClient(
+const supabaseClient=supabase.createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
   "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
 );
@@ -185,6 +202,7 @@ const PEOPLE={
 };
 const TYPES=["Design + QR","Design","Menu + QR","Menu","QR"];
 
+/* ================= STATE ================= */
 let current=new Date();
 let selectedDay=null;
 let cache={};
@@ -203,37 +221,38 @@ function formatDate(y,m,d){
   return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 
-/* 🔔 TELEGRAM */
-function notifyTelegram(person,message){
-  fetch(GAS_NOTIFY_URL,{
+/* ================= TELEGRAM ================= */
+function notifyTelegram(task,action){
+  fetch(GAS_URL,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({person,message})
+    body:JSON.stringify({
+      person:task.person,
+      message:`📌 <b>${action}</b>
+<b>Project:</b> ${task.text}
+<b>Date:</b> ${task.task_date}
+<b>Type:</b> ${task.type}`
+    })
   }).catch(()=>{});
 }
 
-/* ================= LOAD ================= */
+/* ================= LOAD / RENDER ================= */
 async function load(){
   const y=current.getFullYear(),m=current.getMonth();
   const start=formatDate(y,m,1);
   const end=formatDate(y,m,new Date(y,m+1,0).getDate());
-  const {data}=await supabaseClient
-    .from("tasks")
-    .select("*")
-    .gte("task_date",start)
-    .lte("task_date",end)
+  const {data}=await supabaseClient.from("tasks")
+    .select("*").gte("task_date",start).lte("task_date",end)
     .order("sort_order",{ascending:true});
-
   cache={};
   (data||[]).forEach(t=>{
     const d=+t.task_date.slice(8,10);
     (cache[d]??=[]).push(t);
   });
 }
-
-/* ================= RENDER ================= */
 async function render(){await load();renderCalendarOnly();}
 
+/* ================= CALENDAR ================= */
 function renderCalendarOnly(){
   calendar.innerHTML="";
   title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
@@ -247,7 +266,7 @@ function renderCalendarOnly(){
     day.innerHTML=`<div class="day-number">${d}</div>`;
 
     let tasks=[...(cache[d]||[])];
-    if(filterPerson.value)tasks=tasks.filter(t=>t.person===filterPerson.value);
+    if(filterPerson.value) tasks=tasks.filter(t=>t.person===filterPerson.value);
     if(viewMode.value==="assign"){
       tasks.sort((a,b)=>PEOPLE_ORDER.indexOf(a.person)-PEOPLE_ORDER.indexOf(b.person));
     }
@@ -257,12 +276,6 @@ function renderCalendarOnly(){
       el.className="task"+(t.done?" done":"")+(canEdit?"":" readonly");
       el.style.background=PEOPLE[t.person];
       el.draggable=canEdit;
-
-      el.ondragstart=()=>{
-        dragTask=t;dragFromDay=d;dragFromIndex=cache[d].indexOf(t);
-      };
-      el.ondragover=e=>canEdit&&e.preventDefault();
-      el.ondrop=e=>{e.preventDefault();reorderInDay(d,t);};
 
       if(canEdit) el.onclick=()=>toggleDone(t);
 
@@ -298,53 +311,16 @@ function renderCalendarOnly(){
       add.textContent="+ Add task";
       add.onclick=()=>openModal(d);
       day.appendChild(add);
-      day.ondragover=e=>e.preventDefault();
-      day.ondrop=()=>dropToOtherDay(d);
     }
     calendar.appendChild(day);
   }
-}
-
-/* ================= DRAG ================= */
-async function reorderInDay(day,target){
-  if(!dragTask||day!==dragFromDay)return;
-  const list=cache[day];
-  const from=dragFromIndex,to=list.indexOf(target);
-  if(from===to)return;
-  list.splice(from,1);
-  list.splice(to,0,dragTask);
-  list.forEach((t,i)=>t.sort_order=i);
-  renderCalendarOnly();
-  await Promise.all(list.map(t=>
-    supabaseClient.from("tasks").update({sort_order:t.sort_order}).eq("id",t.id)
-  ));
-  dragTask=null;
-}
-
-async function dropToOtherDay(day){
-  if(!dragTask||day===dragFromDay)return;
-  cache[dragFromDay]=cache[dragFromDay].filter(t=>t!==dragTask);
-  dragTask.task_date=formatDate(current.getFullYear(),current.getMonth(),day);
-  (cache[day]??=[]).push(dragTask);
-  cache[day].forEach((t,i)=>t.sort_order=i);
-  renderCalendarOnly();
-  await supabaseClient.from("tasks")
-    .update({task_date:dragTask.task_date,sort_order:dragTask.sort_order})
-    .eq("id",dragTask.id);
-
-  notifyTelegram(
-    dragTask.person,
-    `📦 <b>Task moved</b>\n📅 ${dragTask.task_date}\n📌 ${dragTask.text}`
-  );
-  dragTask=null;
 }
 
 /* ================= ACTIONS ================= */
 function unlockEdit(){
   if(editCode.value===EDIT_CODE){
     canEdit=true;localStorage.setItem("canEdit","1");
-    toast("Edit unlocked","#2e7d32");
-    renderCalendarOnly();
+    toast("Edit unlocked","#2e7d32");renderCalendarOnly();
   }else toast("Wrong code","#b71c1c");
 }
 
@@ -364,61 +340,24 @@ async function saveTask(){
   (cache[selectedDay]??=[]).push(task);
   renderCalendarOnly();closeModal();
   await supabaseClient.from("tasks").insert(task);
+  notifyTelegram(task,"New Task");
   toast("Task added","#2e7d32");
-
-  notifyTelegram(
-    task.person,
-    `🆕 <b>New Task</b>\n📅 ${task.task_date}\n📌 ${task.text}\n🗂 ${task.type}`
-  );
 }
 
 async function toggleDone(t){
   t.done=!t.done;
   renderCalendarOnly();
   await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
-  toast("Task updated","#2e7d32");
-
-  notifyTelegram(
-    t.person,
-    `${t.done?"✅ Completed":"♻️ Reopened"}\n📅 ${t.task_date}\n📌 ${t.text}`
-  );
+  notifyTelegram(t,"Task Updated");
 }
 
 async function removeTask(t){
-  Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(x=>x.id!==t.id));
+  Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(x=>x!==t));
   renderCalendarOnly();
   await supabaseClient.from("tasks").delete().eq("id",t.id);
+  notifyTelegram(t,"Task Deleted");
   toast("Task deleted","#b71c1c");
-
-  notifyTelegram(
-    t.person,
-    `❌ <b>Task deleted</b>\n📅 ${t.task_date}\n📌 ${t.text}`
-  );
 }
-
-/* ================= STATS ================= */
-function openStats(){
-  const byType={},byPerson={};
-  let total=0;
-  Object.values(cache).flat().forEach(t=>{
-    total++;
-    byType[t.type]=(byType[t.type]||0)+1;
-    byPerson[t.person]=(byPerson[t.person]||0)+1;
-  });
-
-  let html=`<div class="stats-item"><strong>Total</strong><strong>${total}</strong></div><hr>`;
-  html+=`<div class="stats-title">By type</div>`;
-  TYPES.forEach(t=>{
-    html+=`<div class="stats-item"><span>${t}</span><strong>${byType[t]||0}</strong></div>`;
-  });
-  html+=`<hr><div class="stats-title">By person</div>`;
-  PEOPLE_ORDER.forEach(p=>{
-    html+=`<div class="stats-item"><span>${p}</span><strong>${byPerson[p]||0}</strong></div>`;
-  });
-  statsContent.innerHTML=html;
-  statsModal.style.display="flex";
-}
-function closeStats(e){if(!e||e.target===statsModal)statsModal.style.display="none";}
 
 /* ================= UI ================= */
 function openModal(d){selectedDay=d;modal.style.display="flex";}
@@ -444,5 +383,3 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
-
-
