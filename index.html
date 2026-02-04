@@ -188,7 +188,7 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 const EDIT_CODE="TEAM2026";
 
 /* 🔔 GOOGLE APP SCRIPT URL */
-const GAS_URL="https://script.google.com/macros/s/AKfycbzPEwVnukh82qfNN7o8YPoqPblEmNb6tEkHNhi3_wYPstlDocP0Xl1x3rfMQCPk3AYI2g/exec";
+const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbzPEwVnukh82qfNN7o8YPoqPblEmNb6tEkHNhi3_wYPstlDocP0Xl1x3rfMQCPk3AYI2g/exec";
 
 const supabaseClient=supabase.createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
@@ -222,20 +222,13 @@ function formatDate(y,m,d){
 }
 
 /* ================= TELEGRAM ================= */
-function notifyTelegram(task,action){
-  fetch(GAS_URL,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      person:task.person,
-      message:`📌 <b>${action}</b>
-<b>Project:</b> ${task.text}
-<b>Date:</b> ${task.task_date}
-<b>Type:</b> ${task.type}`
-    })
-  }).catch(()=>{});
+function notifyTelegram(person, message) {
+  fetch(TELEGRAM_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ person, message })
+  }).catch(err => console.error("Telegram error", err));
 }
-
 /* ================= LOAD / RENDER ================= */
 async function load(){
   const y=current.getFullYear(),m=current.getMonth();
@@ -383,4 +376,5 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
