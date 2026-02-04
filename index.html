@@ -317,25 +317,55 @@ function unlockEdit(){
   }else toast("Wrong code","#b71c1c");
 }
 
-async function saveTask(){
-  if(!canEdit||!selectedDay||!taskText.value)return;
-  if((cache[selectedDay]||[]).some(t=>t.text===taskText.value)){
-    toast("Task trùng!","#b71c1c");return;
+async function saveTask() {
+  if (!canEdit || !selectedDay || !taskText.value) return;
+
+  if ((cache[selectedDay] || []).some(t => t.text === taskText.value)) {
+    toast("Task trùng!", "#b71c1c");
+    return;
   }
-  const task={
-    task_date:formatDate(current.getFullYear(),current.getMonth(),selectedDay),
-    text:taskText.value,
-    person:taskPerson.value,
-    type:taskType.value,
-    done:false,
-    sort_order:(cache[selectedDay]?.length||0)
+
+  const task = {
+    task_date: formatDate(
+      current.getFullYear(),
+      current.getMonth(),
+      selectedDay
+    ),
+    text: taskText.value,
+    person: taskPerson.value,
+    type: taskType.value,
+    done: false,
+    sort_order: (cache[selectedDay]?.length || 0)
   };
-  (cache[selectedDay]??=[]).push(task);
-  renderCalendarOnly();closeModal();
-  await supabaseClient.from("tasks").insert(task);
-  notifyTelegram(task,"New Task");
-  toast("Task added","#2e7d32");
+
+  // UI trước
+  (cache[selectedDay] ?? []).push(task);
+  renderCalendarOnly();
+  closeModal();
+
+  // DB
+  const { error } = await supabaseClient
+    .from("tasks")
+    .insert(task);
+
+  if (error) {
+    toast("DB error", "#b71c1c");
+    return;
+  }
+
+  // ✅ TELEGRAM – CHỈ GỌI 1 LẦN
+  notifyTelegram(
+    task.person,
+    `🆕 <b>New Task</b>
+<b>${task.text}</b>
+👤 ${task.person}
+🧩 ${task.type}
+📅 ${task.task_date}`
+  );
+
+  toast("Task added", "#2e7d32");
 }
+
 
 async function toggleDone(t){
   t.done=!t.done;
@@ -376,5 +406,6 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
