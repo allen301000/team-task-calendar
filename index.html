@@ -110,15 +110,9 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   font-size:18px;
   box-shadow:0 4px 10px rgba(0,0,0,.4);
 }
-
 .stats-modal .modal-box{width:320px}
 .stats-title{margin:10px 0 6px;font-size:13px;opacity:.8}
-.stats-item{
-  display:flex;
-  justify-content:space-between;
-  font-size:13px;
-  margin-bottom:4px;
-}
+.stats-item{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
 hr{border:0;border-top:1px solid #333;margin:8px 0}
 </style>
 </head>
@@ -178,6 +172,17 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 <script>
 /* ===== CONFIG ===== */
 const EDIT_CODE="TEAM2026";
+
+/* 🔔 TELEGRAM */
+const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7RllRbFzI6RHFkHEnmQuh3gzafj4KyvNKEchUl7QwdxRW1_4b3o5CHA/exec";
+function sendTelegram(message){
+  fetch(TELEGRAM_WEBHOOK,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ message })
+  }).catch(()=>{});
+}
+/* 🔔 END TELEGRAM */
 
 const supabaseClient=supabase.createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
@@ -324,6 +329,10 @@ async function dropToOtherDay(day){
   await supabaseClient.from("tasks")
     .update({task_date:dragTask.task_date,sort_order:dragTask.sort_order})
     .eq("id",dragTask.id);
+
+  // 🔔 TELEGRAM
+  sendTelegram(`📦 Move task: <b>${dragTask.text}</b>\n➡️ ${dragTask.person} – ${dragTask.type}\n📅 ${dragTask.task_date}`);
+
   dragTask=null;
 }
 
@@ -351,6 +360,10 @@ async function saveTask(){
   (cache[selectedDay]??=[]).push(task);
   renderCalendarOnly();closeModal();
   await supabaseClient.from("tasks").insert(task);
+
+  // 🔔 TELEGRAM
+  sendTelegram(`🆕 <b>New task</b>\n📌 ${task.text}\n👤 ${task.person}\n🧩 ${task.type}\n📅 ${task.task_date}`);
+
   toast("Task added","#2e7d32");
 }
 
@@ -358,13 +371,27 @@ async function toggleDone(t){
   t.done=!t.done;
   renderCalendarOnly();
   await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
+
+  // 🔔 TELEGRAM
+  sendTelegram(`${t.done?"✅ Completed":"♻️ Re-open"}: <b>${t.text}</b> – ${t.person}`);
+
   toast("Task updated","#2e7d32");
 }
 
 async function removeTask(id){
-  Object.keys(cache).forEach(d=>cache[d]=cache[d].filter(t=>t.id!==id));
+  let removed;
+  Object.keys(cache).forEach(d=>{
+    cache[d]=cache[d].filter(t=>{
+      if(t.id===id) removed=t;
+      return t.id!==id;
+    });
+  });
   renderCalendarOnly();
   await supabaseClient.from("tasks").delete().eq("id",id);
+
+  // 🔔 TELEGRAM
+  if(removed) sendTelegram(`❌ Deleted: <b>${removed.text}</b> – ${removed.person}`);
+
   toast("Task deleted","#b71c1c");
 }
 
@@ -379,12 +406,10 @@ function openStats(){
   });
 
   let html=`<div class="stats-item"><strong>Total</strong><strong>${total}</strong></div><hr>`;
-
   html+=`<div class="stats-title">By type</div>`;
   TYPES.forEach(t=>{
     html+=`<div class="stats-item"><span>${t}</span><strong>${byType[t]||0}</strong></div>`;
   });
-
   html+=`<hr><div class="stats-title">By person</div>`;
   PEOPLE_ORDER.forEach(p=>{
     html+=`<div class="stats-item"><span>${p}</span><strong>${byPerson[p]||0}</strong></div>`;
