@@ -175,16 +175,15 @@ const EDIT_CODE="TEAM2026";
 
 /* 🔔 TELEGRAM – FIXED & WORKING */
 const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7RllRbFzI6RHFkHEnmQuh3gzafj4KyvNKEchUl7QwdxRW1_4b3o5CHA/exec";
-function sendTelegram(message){
+function sendTelegram(data){
   fetch(TELEGRAM_WEBHOOK,{
     method:"POST",
     mode:"no-cors",
     headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
-      message: message
-    })
+    body:JSON.stringify(data)
   });
 }
+
 /* 🔔 END TELEGRAM */
 
 const supabaseClient=supabase.createClient(
@@ -334,12 +333,15 @@ async function dropToOtherDay(day){
     .eq("id",dragTask.id);
 
   // 🔔 TELEGRAM
- sendTelegram(
-  `📦 <b>Move task</b>\n` +
-  `📌 ${dragTask.text}\n` +
+
+sendTelegram({
+  person: dragTask.person,
+  message:
+    `📦 <b>Task moved</b>\n` +
+   `📌 ${dragTask.text}\n` +
   `➡️ ${dragTask.person} – ${dragTask.type}\n` +
   `📅 ${dragTask.task_date}`
-);
+});
 
 
   dragTask=null;
@@ -371,13 +373,14 @@ async function saveTask(){
   await supabaseClient.from("tasks").insert(task);
 
   // 🔔 TELEGRAM
-sendTelegram(
-  `🆕 <b>New task</b>\n` +
-  `📌 ${task.text}\n` +
-  `👤 ${task.person}\n` +
-  `🧩 ${task.type}\n` +
-  `📅 ${task.task_date}`
-);
+sendTelegram({
+  person: task.person,
+  message:
+    `🆕 <b>New task for you</b>\n` +
+    `📌 ${task.text}\n` +
+    `🧩 ${task.type}\n` +
+    `📅 ${task.task_date}`
+});
 
 
   toast("Task added","#2e7d32");
@@ -389,11 +392,13 @@ async function toggleDone(t){
   await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
 
   // 🔔 TELEGRAM
-sendTelegram(
-  `${t.done ? "✅ Completed" : "♻️ Re-open"}\n` +
-  `📌 ${t.text}\n` +
-  `👤 ${t.person}`
-);
+sendTelegram({
+  person: t.person,
+  message:
+    `${t.done ? "✅ Completed" : "♻️ Re-open"}\n` +
+    `📌 ${t.text}`
+});
+
 
 
   toast("Task updated","#2e7d32");
@@ -411,11 +416,15 @@ async function removeTask(id){
   await supabaseClient.from("tasks").delete().eq("id",id);
 
   // 🔔 TELEGRAM
-sendTelegram(
-  `❌ <b>Deleted</b>\n` +
-  `📌 ${removed.text}\n` +
-  `👤 ${removed.person}`
-);
+sendTelegram({
+  person: removed.person,
+  message:
+    `❌ <b>Deleted</b>\n` +
+    `📌 ${removed.text}\n` +
+    `👤 ${removed.person}`
+});
+
+
 
 
   toast("Task deleted","#b71c1c");
@@ -472,5 +481,6 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
