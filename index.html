@@ -6,110 +6,33 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-/* ===== CSS GIỮ NGUYÊN ===== */
+/* ====== GIỮ NGUYÊN CSS ====== */
 body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
 header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
 header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
-
 .weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
 .weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
-
 .calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 210px)}
 .day{border:1px solid #24262b;padding:6px;font-size:12px}
 .day-number{opacity:.6;margin-bottom:4px}
-
-.task{
-  position:relative;
-  padding:6px;
-  border-radius:6px;
-  margin-bottom:4px;
-  cursor:grab;
-  color:#000;
-}
+.task{position:relative;padding:6px;border-radius:6px;margin-bottom:4px;cursor:grab;color:#000}
 .task.readonly{cursor:default;opacity:.85}
 .task.done{opacity:.45;filter:grayscale(.15)}
-.task.done::after{
-  content:"Completed";
-  position:absolute;
-  top:2px;
-  right:6px;
-  font-size:9px;
-  background:#1b5e20;
-  color:#fff;
-  padding:2px 6px;
-  border-radius:10px;
-}
+.task.done::after{content:"Completed";position:absolute;top:2px;right:6px;font-size:9px;background:#1b5e20;color:#fff;padding:2px 6px;border-radius:10px}
 .task.done strong{text-decoration:line-through}
-
 .task-type{font-size:10px;opacity:.8}
-
-.delete,.copy-btn{
-  position:absolute;
-  bottom:2px;
-  font-size:14px;
-  cursor:pointer;
-  opacity:0;
-}
+.delete,.copy-btn,.edit-btn{position:absolute;bottom:2px;font-size:14px;cursor:pointer;opacity:0}
 .delete{right:6px}
-.copy-btn{right:22px}
-.task:hover .delete,
-.task:hover .copy-btn{opacity:1}
-
+.copy-btn{right:24px}
+.edit-btn{right:44px}
+.task:hover .delete,.task:hover .copy-btn,.task:hover .edit-btn{opacity:1}
 .add{opacity:.5;cursor:pointer;font-size:11px}
 .add:hover{opacity:1}
-
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
 .modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
-
-.modal-box input,.modal-box select{
-  width:100%;
-  margin-bottom:8px;
-  padding:6px;
-  background:#1f2228;
-  color:#fff;
-  border:1px solid #333
-}
-
-.filter-bar{display:flex;gap:8px;padding:8px 16px}
-.filter-bar select{background:#1f2228;color:#fff;border:none;padding:6px}
-
-.toast{
-  position:fixed;bottom:50px;left:50%;
-  transform:translateX(-50%);
-  background:#333;color:#fff;
-  padding:8px 14px;border-radius:6px;
-  font-size:12px;opacity:0;transition:.25s;
-}
+.modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px;background:#1f2228;color:#fff;border:1px solid #333}
+.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:6px;font-size:12px;opacity:0;transition:.25s}
 .toast.show{opacity:1}
-
-.edit-bar{
-  position:fixed;bottom:10px;left:50%;
-  transform:translateX(-50%);
-  display:flex;gap:6px
-}
-.edit-bar input{
-  background:#1f2228;border:1px solid #333;
-  color:#fff;padding:6px;width:120px
-}
-.edit-bar button{
-  background:#2e7d32;border:none;
-  color:#fff;padding:6px 10px;cursor:pointer
-}
-
-.stats-btn{
-  position:fixed;
-  right:14px;
-  bottom:14px;
-  background:#1f2228;
-  color:#fff;
-  border:none;
-  border-radius:50%;
-  width:44px;
-  height:44px;
-  cursor:pointer;
-  font-size:18px;
-  box-shadow:0 4px 10px rgba(0,0,0,.4);
-}
 </style>
 </head>
 
@@ -121,23 +44,9 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   <button onclick="changeMonth(1)">→</button>
 </header>
 
-<div class="filter-bar">
-  <select id="filterPerson">
-    <option value="">All people</option>
-  </select>
-  <select id="viewMode">
-    <option value="normal">Normal view</option>
-    <option value="assign">View by assign order</option>
-  </select>
-</div>
-
-<div class="weekdays">
-  <div>Mon</div><div>Tue</div><div>Wed</div>
-  <div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
-</div>
-
 <div class="calendar" id="calendar"></div>
 
+<!-- ADD TASK MODAL -->
 <div class="modal" id="modal" onclick="closeModal(event)">
   <div class="modal-box">
     <input id="taskText" placeholder="Task name">
@@ -149,46 +58,27 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 <div class="toast" id="toast"></div>
 
-<div class="edit-bar">
-  <input id="editCode" placeholder="Edit code">
-  <button onclick="unlockEdit()">Unlock</button>
-</div>
-
 <script>
-/* ===== CONFIG ===== */
+/* ================= CONFIG ================= */
+
 const EDIT_CODE="TEAM2026";
+
+/* 🔵 ADD GAS */
+const GAS_URL="https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7RllRbFzI6RHFkHEnmQuh3gzafj4KyvNKEchUl7QwdxRW1_4b3o5CHA/exec";
 
 const supabaseClient=supabase.createClient(
   "https://letbykkygmmdxbmnemam.supabase.co",
   "sb_publishable_AIRw5d-xegyZkpX39_4MLQ_yK1tZMZo"
 );
 
-/* 🔔 TELEGRAM CONFIG (CHỈ THÊM) */
-const TELEGRAM_WEBHOOK =
-"https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7RllRbFzI6RHFkHEnmQuh3gzafj4KyvNKEchUl7QwdxRW1_4b3o5CHA/exec";
-
-function notifyTelegram(message){
-  fetch(TELEGRAM_WEBHOOK,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({ message })
-  }).catch(()=>{});
-}
-/* 🔔 END TELEGRAM */
-
-const PEOPLE_ORDER=["Tony","Davis","Alex","Lucas","Allen","Hayden","Leo","Dante"];
-const PEOPLE={
-  Tony:"#ff8a80",Allen:"#90caf9",Davis:"#b39ddb",Alex:"#ffe082",
-  Lucas:"#b0bec5",Hayden:"#f48fb1",Leo:"#ce93d8",Dante:"#a5d6a7"
-};
-const TYPES=["Design + QR","Design","Menu + QR","Menu","QR"];
+const PEOPLE={Tony:"#ff8a80",Allen:"#90caf9",Davis:"#b39ddb",Alex:"#ffe082"};
+const TYPES=["Design","Menu","QR"];
 
 let current=new Date();
-let selectedDay=null;
 let cache={};
-let canEdit=localStorage.getItem("canEdit")==="1";
+let selectedDay=null;
 
-/* ===== HELPERS ===== */
+/* ================= HELPERS ================= */
 function toast(msg,color="#333"){
   const t=document.getElementById("toast");
   t.textContent=msg;
@@ -200,67 +90,96 @@ function formatDate(y,m,d){
   return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 
-/* ===== LOAD & RENDER (GIỮ NGUYÊN) ===== */
+/* 🔵 ADD GAS HELPER */
+function sendToGAS(action,data){
+  fetch(GAS_URL,{
+    method:"POST",
+    mode:"no-cors",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action,...data})
+  });
+}
+
+/* ================= LOAD ================= */
 async function load(){
   const y=current.getFullYear(),m=current.getMonth();
   const start=formatDate(y,m,1);
   const end=formatDate(y,m,new Date(y,m+1,0).getDate());
+
   const {data}=await supabaseClient.from("tasks")
     .select("*").gte("task_date",start).lte("task_date",end)
     .order("sort_order",{ascending:true});
+
   cache={};
   (data||[]).forEach(t=>{
     const d=+t.task_date.slice(8,10);
     (cache[d]??=[]).push(t);
   });
 }
-async function render(){await load();renderCalendarOnly();}
 
-/* ===== SAVE TASK (CHỈ THÊM TELEGRAM) ===== */
+/* ================= RENDER ================= */
+async function render(){
+  await load();
+  calendar.innerHTML="";
+  title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
+  const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
+
+  for(let d=1;d<=days;d++){
+    const day=document.createElement("div");
+    day.className="day";
+    day.innerHTML=`<div class="day-number">${d}</div>`;
+
+    (cache[d]||[]).forEach(t=>{
+      const el=document.createElement("div");
+      el.className="task";
+      el.style.background=PEOPLE[t.person];
+      el.innerHTML=`<strong>${t.text}</strong><div class="task-type">${t.person} • ${t.type}</div>`;
+      day.appendChild(el);
+    });
+
+    const add=document.createElement("div");
+    add.className="add";
+    add.textContent="+ Add task";
+    add.onclick=()=>openModal(d);
+    day.appendChild(add);
+
+    calendar.appendChild(day);
+  }
+}
+
+/* ================= ADD TASK ================= */
 async function saveTask(){
-  if(!canEdit||!selectedDay||!taskText.value)return;
-  const task={
-    task_date:formatDate(current.getFullYear(),current.getMonth(),selectedDay),
+  if(!taskText.value)return;
+
+  const date=formatDate(current.getFullYear(),current.getMonth(),selectedDay);
+
+  const payload={
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
-    done:false,
-    sort_order:(cache[selectedDay]?.length||0)
+    task_date:date
   };
-  closeModal();
-  const {data}=await supabaseClient.from("tasks").insert(task).select().single();
-  if(data){
-    notifyTelegram(
-      `🆕 <b>New Task</b>\n`+
-      `📌 ${data.text}\n`+
-      `👤 ${data.person}\n`+
-      `📂 ${data.type}\n`+
-      `📅 ${data.task_date}`
-    );
-  }
+
+  await supabaseClient.from("tasks").insert(payload);
+
+  /* 🔵 ADD GAS */
+  sendToGAS("addTask",payload);
+
   toast("Task added","#2e7d32");
+  modal.style.display="none";
+  taskText.value="";
 }
 
-/* ===== TOGGLE DONE (CHỈ THÊM TELEGRAM) ===== */
-async function toggleDone(t){
-  t.done=!t.done;
-  await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
-  notifyTelegram(
-    `${t.done?"✅ Completed":"♻️ Re-open"}\n`+
-    `📌 ${t.text}\n👤 ${t.person}\n📅 ${t.task_date}`
-  );
-  toast("Task updated","#2e7d32");
-}
+/* ================= UI ================= */
+function openModal(d){selectedDay=d;modal.style.display="flex";}
+function closeModal(e){if(!e||e.target===modal)modal.style.display="none";}
+function changeMonth(n){current.setMonth(current.getMonth()+n);render();}
 
-/* ===== INIT ===== */
-Object.keys(PEOPLE).forEach(p=>{
-  taskPerson.innerHTML+=`<option>${p}</option>`;
-  filterPerson.innerHTML+=`<option>${p}</option>`;
-});
+/* ================= INIT ================= */
+Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
 TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
 
 render();
-
 supabaseClient.channel("tasks-rt")
   .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
   .subscribe();
