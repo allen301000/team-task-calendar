@@ -179,9 +179,17 @@ function sendTelegram(data){
   fetch(TELEGRAM_WEBHOOK,{
     method:"POST",
     mode:"no-cors",
-    body: JSON.stringify(data)
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      ...data,
+      // 🔥 FIX QUAN TRỌNG: chuẩn hoá person
+      person: String(data.person || "")
+        .trim()
+        .toLowerCase()
+    })
   });
 }
+
 
 
 /* 🔔 END TELEGRAM */
@@ -481,6 +489,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
