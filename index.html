@@ -177,19 +177,13 @@ const TELEGRAM_WEBHOOK =
   "https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7RllRbFzI6RHFkHEnmQuh3gzafj4KyvNKEchUl7QwdxRW1_4b3o5CHA/exec";
 
 /* 🔔 TELEGRAM – FIXED & WORKING */
-function sendTelegram(data){
-  const params = new URLSearchParams({
-    person: String(data.person || "").trim().toLowerCase(),
-    message: data.message || ""
-  });
+function sendTelegram({ person, message }) {
+  const url =
+    TELEGRAM_WEBHOOK +
+    "?person=" + encodeURIComponent(String(person).trim().toLowerCase()) +
+    "&message=" + encodeURIComponent(message || "");
 
-  fetch(TELEGRAM_WEBHOOK, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: params.toString()
-  });
+  new Image().src = url;
 }
 
 
@@ -490,6 +484,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
