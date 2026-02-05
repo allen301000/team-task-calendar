@@ -178,11 +178,9 @@ const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7R
 function sendTelegram(data){
   fetch(TELEGRAM_WEBHOOK,{
     method:"POST",
-    mode: "no-cors",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify(data)
-  })
-  .catch(err => console.error("Telegram error", err));
+    mode:"no-cors",
+    body: JSON.stringify(data)
+  });
 }
 
 
@@ -483,6 +481,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
