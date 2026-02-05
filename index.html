@@ -340,11 +340,12 @@ async function dropToOtherDay(day){
 sendTelegram({
   person: dragTask.person,
   message:
-    `📦 <b>Task moved</b>\n` +
-   `📌 ${dragTask.text}\n` +
-  `➡️ ${dragTask.person} – ${dragTask.type}\n` +
-  `📅 ${dragTask.task_date}`
+    `📦 Task moved\n` +
+    `📌 ${dragTask.text}\n` +
+    `➡️ ${dragTask.person} – ${dragTask.type}\n` +
+    `📅 ${dragTask.task_date}`
 });
+
 
 
   dragTask=null;
@@ -379,11 +380,12 @@ async function saveTask(){
 sendTelegram({
   person: task.person,
   message:
-    `🆕 <b>New task for you</b>\n` +
+    `🆕 New task for you\n` +
     `📌 ${task.text}\n` +
     `🧩 ${task.type}\n` +
     `📅 ${task.task_date}`
 });
+
 
 
   toast("Task added","#2e7d32");
@@ -399,7 +401,7 @@ sendTelegram({
   person: t.person,
   message:
     `${t.done ? "✅ Completed" : "♻️ Re-open"}\n` +
-    `📌 ${t.text}`
+    ` ${t.text}`
 });
 
 
@@ -484,6 +486,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
