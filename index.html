@@ -6,33 +6,95 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-/* ====== GIỮ NGUYÊN CSS ====== */
+/* ===== CSS GIỮ NGUYÊN ===== */
 body{margin:0;font-family:system-ui;background:#0f1115;color:#eaeaea}
 header{padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
 header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:pointer}
+
 .weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#14161b;border-bottom:1px solid #24262b}
 .weekdays div{text-align:center;padding:6px 0;font-size:12px;opacity:.7}
+
 .calendar{display:grid;grid-template-columns:repeat(7,1fr);height:calc(100vh - 210px)}
 .day{border:1px solid #24262b;padding:6px;font-size:12px}
 .day-number{opacity:.6;margin-bottom:4px}
-.task{position:relative;padding:6px;border-radius:6px;margin-bottom:4px;cursor:grab;color:#000}
+
+.task{
+  position:relative;
+  padding:6px;
+  border-radius:6px;
+  margin-bottom:4px;
+  cursor:grab;
+  color:#000;
+}
 .task.readonly{cursor:default;opacity:.85}
 .task.done{opacity:.45;filter:grayscale(.15)}
-.task.done::after{content:"Completed";position:absolute;top:2px;right:6px;font-size:9px;background:#1b5e20;color:#fff;padding:2px 6px;border-radius:10px}
+.task.done::after{
+  content:"Completed";
+  position:absolute;
+  top:2px;
+  right:6px;
+  font-size:9px;
+  background:#1b5e20;
+  color:#fff;
+  padding:2px 6px;
+  border-radius:10px;
+}
 .task.done strong{text-decoration:line-through}
+
 .task-type{font-size:10px;opacity:.8}
-.delete,.copy-btn,.edit-btn{position:absolute;bottom:2px;font-size:14px;cursor:pointer;opacity:0}
+
+.delete,.copy-btn,.edit-btn{
+  position:absolute;
+  bottom:2px;
+  font-size:14px;
+  cursor:pointer;
+  opacity:0;
+}
 .delete{right:6px}
 .copy-btn{right:24px}
 .edit-btn{right:44px}
-.task:hover .delete,.task:hover .copy-btn,.task:hover .edit-btn{opacity:1}
+
+.task:hover .delete,
+.task:hover .copy-btn,
+.task:hover .edit-btn{opacity:1}
+
 .add{opacity:.5;cursor:pointer;font-size:11px}
 .add:hover{opacity:1}
+
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
 .modal-box{background:#1b1d22;padding:16px;border-radius:10px;width:260px}
-.modal-box input,.modal-box select{width:100%;margin-bottom:8px;padding:6px;background:#1f2228;color:#fff;border:1px solid #333}
-.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:6px;font-size:12px;opacity:0;transition:.25s}
+
+.modal-box input,.modal-box select{
+  width:100%;
+  margin-bottom:8px;
+  padding:6px;
+  background:#1f2228;
+  color:#fff;
+  border:1px solid #333
+}
+
+.toast{
+  position:fixed;bottom:50px;left:50%;
+  transform:translateX(-50%);
+  background:#333;color:#fff;
+  padding:8px 14px;border-radius:6px;
+  font-size:12px;opacity:0;transition:.25s;
+}
 .toast.show{opacity:1}
+
+.edit-bar{
+  position:fixed;bottom:10px;left:50%;
+  transform:translateX(-50%);
+  display:flex;gap:6px
+}
+.edit-bar input{
+  background:#1f2228;border:1px solid #333;
+  color:#fff;padding:6px;width:120px
+}
+.edit-bar button{
+  background:#2e7d32;border:none;
+  color:#fff;padding:6px 10px;cursor:pointer
+}
 </style>
 </head>
 
@@ -46,7 +108,7 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
 
 <div class="calendar" id="calendar"></div>
 
-<!-- ADD TASK MODAL -->
+<!-- ADD TASK -->
 <div class="modal" id="modal" onclick="closeModal(event)">
   <div class="modal-box">
     <input id="taskText" placeholder="Task name">
@@ -56,14 +118,26 @@ header button{background:#1f2228;color:#fff;border:none;padding:6px 10px;cursor:
   </div>
 </div>
 
+<!-- EDIT TASK -->
+<div class="modal" id="editModal" onclick="closeEdit(event)">
+  <div class="modal-box">
+    <input id="editText">
+    <select id="editPerson"></select>
+    <select id="editType"></select>
+    <button onclick="saveEdit()">Save</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
+<div class="edit-bar">
+  <input id="editCode" placeholder="Edit code">
+  <button onclick="unlockEdit()">Unlock</button>
+</div>
+
 <script>
-/* ================= CONFIG ================= */
-
+/* ===== CONFIG ===== */
 const EDIT_CODE="TEAM2026";
-
-/* 🔵 ADD GAS */
 const GAS_URL="https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7RllRbFzI6RHFkHEnmQuh3gzafj4KyvNKEchUl7QwdxRW1_4b3o5CHA/exec";
 
 const supabaseClient=supabase.createClient(
@@ -74,115 +148,127 @@ const supabaseClient=supabase.createClient(
 const PEOPLE={Tony:"#ff8a80",Allen:"#90caf9",Davis:"#b39ddb",Alex:"#ffe082"};
 const TYPES=["Design","Menu","QR"];
 
-let current=new Date();
-let cache={};
-let selectedDay=null;
+let current=new Date(),selectedDay=null,editingTask=null,cache={},canEdit=false;
 
-/* ================= HELPERS ================= */
-function toast(msg,color="#333"){
-  const t=document.getElementById("toast");
-  t.textContent=msg;
-  t.style.background=color;
-  t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"),1200);
-}
-function formatDate(y,m,d){
-  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-}
-
-/* 🔵 ADD GAS HELPER */
-function sendToGAS(action,data){
+/* 🔔 TELEGRAM */
+function sendToGAS(action,task){
   fetch(GAS_URL,{
     method:"POST",
-    mode:"no-cors",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({action,...data})
-  });
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({action,...task})
+  }).catch(()=>{});
 }
 
-/* ================= LOAD ================= */
+/* HELPERS */
+function toast(msg){const t=toastEl;t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1200);}
+const toastEl=document.getElementById("toast");
+
+function formatDate(y,m,d){return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`}
+
+/* LOAD */
 async function load(){
   const y=current.getFullYear(),m=current.getMonth();
-  const start=formatDate(y,m,1);
-  const end=formatDate(y,m,new Date(y,m+1,0).getDate());
-
-  const {data}=await supabaseClient.from("tasks")
-    .select("*").gte("task_date",start).lte("task_date",end)
-    .order("sort_order",{ascending:true});
-
+  const {data}=await supabaseClient.from("tasks").select("*")
+    .gte("task_date",formatDate(y,m,1))
+    .lte("task_date",formatDate(y,m,31));
   cache={};
-  (data||[]).forEach(t=>{
-    const d=+t.task_date.slice(8,10);
-    (cache[d]??=[]).push(t);
-  });
+  (data||[]).forEach(t=>(cache[+t.task_date.slice(8,10)]??=[]).push(t));
 }
 
-/* ================= RENDER ================= */
+/* RENDER */
 async function render(){
   await load();
   calendar.innerHTML="";
-  title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
+  title.textContent=`${current.getMonth()+1}/${current.getFullYear()}`;
   const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
-
   for(let d=1;d<=days;d++){
     const day=document.createElement("div");
     day.className="day";
     day.innerHTML=`<div class="day-number">${d}</div>`;
-
     (cache[d]||[]).forEach(t=>{
       const el=document.createElement("div");
-      el.className="task";
+      el.className="task"+(t.done?" done":"");
       el.style.background=PEOPLE[t.person];
       el.innerHTML=`<strong>${t.text}</strong><div class="task-type">${t.person} • ${t.type}</div>`;
+      el.onclick=()=>toggleDone(t);
+
+      const edit=document.createElement("span");
+      edit.className="edit-btn";
+      edit.textContent="✏️";
+      edit.onclick=e=>{e.stopPropagation();openEdit(t);}
+      el.appendChild(edit);
+
+      const del=document.createElement("span");
+      del.className="delete";
+      del.textContent="✖";
+      del.onclick=e=>{e.stopPropagation();removeTask(t);}
+      el.appendChild(del);
+
       day.appendChild(el);
     });
-
-    const add=document.createElement("div");
-    add.className="add";
-    add.textContent="+ Add task";
-    add.onclick=()=>openModal(d);
-    day.appendChild(add);
-
+    day.onclick=()=>{selectedDay=d;modal.style.display="flex";}
     calendar.appendChild(day);
   }
 }
 
-/* ================= ADD TASK ================= */
+/* ADD */
 async function saveTask(){
-  if(!taskText.value)return;
-
-  const date=formatDate(current.getFullYear(),current.getMonth(),selectedDay);
-
-  const payload={
-    text:taskText.value,
-    person:taskPerson.value,
-    type:taskType.value,
-    task_date:date
-  };
-
-  await supabaseClient.from("tasks").insert(payload);
-
-  /* 🔵 ADD GAS */
-  sendToGAS("addTask",payload);
-
-  toast("Task added","#2e7d32");
+  const task={task_date:formatDate(current.getFullYear(),current.getMonth(),selectedDay),
+    text:taskText.value,person:taskPerson.value,type:taskType.value,done:false};
+  await supabaseClient.from("tasks").insert(task);
+  sendToGAS("add",task);
   modal.style.display="none";
-  taskText.value="";
 }
 
-/* ================= UI ================= */
-function openModal(d){selectedDay=d;modal.style.display="flex";}
-function closeModal(e){if(!e||e.target===modal)modal.style.display="none";}
-function changeMonth(n){current.setMonth(current.getMonth()+n);render();}
+/* EDIT */
+function openEdit(t){
+  editingTask=t;
+  editText.value=t.text;
+  editPerson.value=t.person;
+  editType.value=t.type;
+  editModal.style.display="flex";
+}
+function closeEdit(e){if(e.target===editModal)editModal.style.display="none";}
+async function saveEdit(){
+  editingTask.text=editText.value;
+  editingTask.person=editPerson.value;
+  editingTask.type=editType.value;
+  await supabaseClient.from("tasks").update(editingTask).eq("id",editingTask.id);
+  sendToGAS("edit",editingTask);
+  editModal.style.display="none";
+  render();
+}
 
-/* ================= INIT ================= */
-Object.keys(PEOPLE).forEach(p=>taskPerson.innerHTML+=`<option>${p}</option>`);
-TYPES.forEach(t=>taskType.innerHTML+=`<option>${t}</option>`);
+/* DONE */
+async function toggleDone(t){
+  t.done=!t.done;
+  await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
+  sendToGAS("done",t);
+  render();
+}
+
+/* DELETE */
+async function removeTask(t){
+  await supabaseClient.from("tasks").delete().eq("id",t.id);
+  sendToGAS("delete",t);
+  render();
+}
+
+function unlockEdit(){
+  if(editCode.value===EDIT_CODE){canEdit=true;toast("Unlocked");}
+}
+
+/* INIT */
+Object.keys(PEOPLE).forEach(p=>{
+  taskPerson.innerHTML+=`<option>${p}</option>`;
+  editPerson.innerHTML+=`<option>${p}</option>`;
+});
+TYPES.forEach(t=>{
+  taskType.innerHTML+=`<option>${t}</option>`;
+  editType.innerHTML+=`<option>${t}</option>`;
+});
 
 render();
-supabaseClient.channel("tasks-rt")
-  .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},render)
-  .subscribe();
 </script>
 </body>
 </html>
