@@ -148,6 +148,7 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
     <input id="taskText" placeholder="Task name">
     <select id="taskPerson"></select>
     <select id="taskType"></select>
+    <select id="taskAM"></select>
     <button onclick="saveTask()">Add Task</button>
   </div>
 </div>
@@ -196,6 +197,7 @@ const PEOPLE={
   Tony:"#ff8a80",Allen:"#90caf9",Davis:"#b39ddb",Alex:"#ffe082",
   Lucas:"#b0bec5",Hayden:"#f48fb1",Leo:"#ce93d8",Dante:"#a5d6a7"
 };
+const AM_LIST = ["Nancy"]; // Thay bằng tên AM thực tế của bạn
 const TYPES=["Design + QR","Design","Menu + QR","Menu","QR"];
 
 let current=new Date();
@@ -251,7 +253,9 @@ function renderCalendarOnly(){
     if(viewMode.value==="assign"){
       tasks.sort((a,b)=>PEOPLE_ORDER.indexOf(a.person)-PEOPLE_ORDER.indexOf(b.person));
     }
-
+  AM_LIST.forEach(am => {
+    taskAM.innerHTML += `<option value="${am}">${am}</option>`;
+});
     tasks.forEach(t=>{
       const el=document.createElement("div");
       el.className="task"+(t.done?" done":"")+(canEdit?"":" readonly");
@@ -266,9 +270,9 @@ function renderCalendarOnly(){
 
       if(canEdit) el.onclick=()=>toggleDone(t);
 
-      el.innerHTML=`<strong>${t.text}</strong>
-        <div class="task-type">${t.person} • ${t.type}</div>`;
-
+   el.innerHTML = `<strong>${t.text}</strong>
+                <div class="task-type">${t.person} • ${t.type} (AM: ${t.am || 'N/A'})</div>`;
+  
       const copy=document.createElement("span");
       copy.className="copy-btn";
       copy.textContent="📋";
@@ -365,6 +369,7 @@ async function saveTask(){
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
+    am: taskAM.value,
     done:false,
     sort_order:(cache[selectedDay]?.length||0)
   };
@@ -378,6 +383,7 @@ sendTelegram({
   message:
     `🆕 <b>New task for you</b>\n` +
     `📌 ${task.text}\n` +
+    `👤 AM: ${task.am}\n` +
     `🧩 ${task.type}\n` +
     `📅 ${task.task_date}`
 });
@@ -480,6 +486,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
