@@ -371,7 +371,7 @@ async function saveTask(){
   (cache[selectedDay]??=[]).push(task);
   renderCalendarOnly();closeModal();
   await supabaseClient.from("tasks").insert(task);
-
+console.log("Đang gửi thông báo cho:", task.person);
   // 🔔 TELEGRAM
 sendTelegram({
   person: task.person,
@@ -480,3 +480,4 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
