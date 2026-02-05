@@ -175,12 +175,14 @@ const EDIT_CODE="TEAM2026";
 
 /* 🔔 TELEGRAM – FIXED & WORKING */
 const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7RllRbFzI6RHFkHEnmQuh3gzafj4KyvNKEchUl7QwdxRW1_4b3o5CHA/exec";
-function sendTelegram(payload){
+function sendTelegram(message){
   fetch(TELEGRAM_WEBHOOK,{
     method:"POST",
     mode:"no-cors",
     headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify(payload)
+    body:JSON.stringify({
+      message: message
+    })
   });
 }
 /* 🔔 END TELEGRAM */
@@ -332,7 +334,13 @@ async function dropToOtherDay(day){
     .eq("id",dragTask.id);
 
   // 🔔 TELEGRAM
-  sendTelegram(`📦 Move task: <b>${dragTask.text}</b>\n➡️ ${dragTask.person} – ${dragTask.type}\n📅 ${dragTask.task_date}`);
+ sendTelegram(
+  `📦 <b>Move task</b>\n` +
+  `📌 ${dragTask.text}\n` +
+  `➡️ ${dragTask.person} – ${dragTask.type}\n` +
+  `📅 ${dragTask.task_date}`
+);
+
 
   dragTask=null;
 }
@@ -363,7 +371,14 @@ async function saveTask(){
   await supabaseClient.from("tasks").insert(task);
 
   // 🔔 TELEGRAM
-  sendTelegram(`🆕 <b>New task</b>\n📌 ${task.text}\n👤 ${task.person}\n🧩 ${task.type}\n📅 ${task.task_date}`);
+sendTelegram(
+  `🆕 <b>New task</b>\n` +
+  `📌 ${task.text}\n` +
+  `👤 ${task.person}\n` +
+  `🧩 ${task.type}\n` +
+  `📅 ${task.task_date}`
+);
+
 
   toast("Task added","#2e7d32");
 }
@@ -374,7 +389,12 @@ async function toggleDone(t){
   await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
 
   // 🔔 TELEGRAM
-  sendTelegram(`${t.done?"✅ Completed":"♻️ Re-open"}: <b>${t.text}</b> – ${t.person}`);
+sendTelegram(
+  `${t.done ? "✅ Completed" : "♻️ Re-open"}\n` +
+  `📌 ${t.text}\n` +
+  `👤 ${t.person}`
+);
+
 
   toast("Task updated","#2e7d32");
 }
@@ -391,7 +411,12 @@ async function removeTask(id){
   await supabaseClient.from("tasks").delete().eq("id",id);
 
   // 🔔 TELEGRAM
-  if(removed) sendTelegram(`❌ Deleted: <b>${removed.text}</b> – ${removed.person}`);
+sendTelegram(
+  `❌ <b>Deleted</b>\n` +
+  `📌 ${removed.text}\n` +
+  `👤 ${removed.person}`
+);
+
 
   toast("Task deleted","#b71c1c");
 }
@@ -447,4 +472,5 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
