@@ -174,22 +174,20 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 const EDIT_CODE="TEAM2026";
 
 /* 🔔 TELEGRAM – FIXED & WORKING */
-const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbwwSieGxwThxZu7RllRbFzI6RHFkHEnmQuh3gzafj4KyvNKEchUl7QwdxRW1_4b3o5CHA/exec";
 function sendTelegram(data){
-  fetch(TELEGRAM_WEBHOOK,{
-    method:"POST",
-    mode:"no-cors",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      ...data,
-      // 🔥 FIX QUAN TRỌNG: chuẩn hoá person
-      person: String(data.person || "")
-        .trim()
-        .toLowerCase()
-    })
+  const params = new URLSearchParams({
+    person: String(data.person || "").trim().toLowerCase(),
+    message: data.message || ""
+  });
+
+  fetch(TELEGRAM_WEBHOOK, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: params.toString()
   });
 }
-
 
 
 /* 🔔 END TELEGRAM */
@@ -489,6 +487,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
