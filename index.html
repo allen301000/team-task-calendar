@@ -379,6 +379,7 @@ async function saveTask(){
 console.log("Đang gửi thông báo cho:", task.person);
   // 🔔 TELEGRAM
 sendTelegram({
+ event: "new",
   person: task.person,
   am: task.am,
   message:
@@ -400,6 +401,7 @@ async function toggleDone(t){
 
   // 🔔 TELEGRAM
 sendTelegram({
+  event: t.done ? "done" : "reopen",
   person: t.person,
   am: t.am,
   message:
@@ -488,6 +490,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
