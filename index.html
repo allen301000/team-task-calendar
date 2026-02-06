@@ -391,7 +391,7 @@ sendTelegram({
   event: "new", // Đúng loại để cả Web và AM cùng nhận
   person: task.person,
   am: task.am,
-  message: `🆕 <b>New task</b>\n ${task.text}\n AM: ${task.am}\n📅 ${task.task_date}`
+  message: `📌<strong>${task.text}</strong>\n AM: ${task.am}\n📅 ${task.task_date}`
 });
 
 
@@ -494,6 +494,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
