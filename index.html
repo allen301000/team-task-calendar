@@ -358,6 +358,8 @@ function unlockEdit(){
 
 async function saveTask(){
   if(!canEdit||!selectedDay||!taskText.value)return;
+  // Lấy giá trị AM từ giao diện
+  const selectedAM = document.getElementById("taskAM").value;
   if((cache[selectedDay]||[]).some(t=>t.text===taskText.value)){
     toast("Task trùng!","#b71c1c");return;
   }
@@ -366,7 +368,7 @@ async function saveTask(){
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
-    am: taskAM.value,
+    am: selectedAM,
     done:false,
     sort_order:(cache[selectedDay]?.length||0)
   };
@@ -374,6 +376,7 @@ async function saveTask(){
   renderCalendarOnly();closeModal();
   await supabaseClient.from("tasks").insert(task);
 console.log("Đang gửi thông báo cho:", task.person);
+  console.log("Đang gửi thông báo cho:", task.am);
   // 🔔 TELEGRAM
 sendTelegram({
   event: "new", // Đúng loại để cả Web và AM cùng nhận
@@ -482,6 +485,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
