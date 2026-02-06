@@ -175,7 +175,7 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 const EDIT_CODE="TEAM2026";
 
 /* 🔔 TELEGRAM – FIXED & WORKING */
-const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbzHojKl8i8fxdQTI6ZoU2Y-2apMi3Cor-0OfLeJl0BwqHLn1pa9C-T2ovvn5gvFktuUmw/exec";
+const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbxtlxQDdsln4WSOEmx23uWMeXwrgrsfOvrOJ0RoLO-elSBviRLEttOCXvBCh2QvSU3vAg/exec";
 function sendTelegram(data){
   fetch(TELEGRAM_WEBHOOK,{
     method:"POST",
@@ -339,12 +339,9 @@ async function dropToOtherDay(day){
   // 🔔 TELEGRAM
 
 sendTelegram({
+  event: "move", // Chỉ Web (Member) nhận
   person: dragTask.person,
-  message:
-    `📦 <b>Task moved</b>\n` +
-   `📌 ${dragTask.text}\n` +
-  `➡️ ${dragTask.person} – ${dragTask.type}\n` +
-  `📅 ${dragTask.task_date}`
+  message: `📦 <b>Task moved</b>\n📌 ${dragTask.text}\n📅 New date: ${dragTask.task_date}`
 });
 
 
@@ -379,15 +376,10 @@ async function saveTask(){
 console.log("Đang gửi thông báo cho:", task.person);
   // 🔔 TELEGRAM
 sendTelegram({
- event: "new",
+  event: "new", // Đúng loại để cả Web và AM cùng nhận
   person: task.person,
   am: task.am,
-  message:
-    `🆕 <b>New task for you</b>\n` +
-    `📌 ${task.text}\n` +
-    `👤 AM: ${task.am}\n` +
-    `🧩 ${task.type}\n` +
-    `📅 ${task.task_date}`
+  message: `🆕 <b>New task</b>\n📌 ${task.text}\n👤 AM: ${task.am}\n📅 ${task.task_date}`
 });
 
 
@@ -400,14 +392,14 @@ async function toggleDone(t){
   await supabaseClient.from("tasks").update({done:t.done}).eq("id",t.id);
 
   // 🔔 TELEGRAM
-sendTelegram({
-  event: t.done ? "done" : "reopen",
-  person: t.person,
-  am: t.am,
-  message:
-    `${t.done ? "✅ Completed" : "♻️ Re-open"}\n` +
-    `📌 ${t.text}`
-});
+if (t.done) { // Chỉ gửi khi check Hoàn thành, bỏ qua khi Re-open (tùy bạn chọn)
+  sendTelegram({
+    event: "done", // Chỉ AM nhận
+    person: t.person,
+    am: t.am,
+    message: `✅ <b>Completed</b>\n📌 ${t.text}`
+  });
+}
 
 
 
@@ -490,6 +482,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
