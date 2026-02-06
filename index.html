@@ -269,6 +269,10 @@ async function render(){await load();renderCalendarOnly();}
 function renderCalendarOnly(){
   calendar.innerHTML="";
   title.textContent=`Tháng ${current.getMonth()+1}/${current.getFullYear()}`;
+  taskAM.innerHTML = ""; 
+  AM_LIST.forEach(am => {
+    taskAM.innerHTML += `<option value="${am}">${am}</option>`;
+  });
   const days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
   const offset=(new Date(current.getFullYear(),current.getMonth(),1).getDay()+6)%7;
   for(let i=0;i<offset;i++)calendar.appendChild(document.createElement("div"));
@@ -283,9 +287,7 @@ function renderCalendarOnly(){
     if(viewMode.value==="assign"){
       tasks.sort((a,b)=>PEOPLE_ORDER.indexOf(a.person)-PEOPLE_ORDER.indexOf(b.person));
     }
-  AM_LIST.forEach(am => {
-    taskAM.innerHTML += `<option value="${am}">${am}</option>`;
-});
+
     tasks.forEach(t=>{
       const el=document.createElement("div");
       el.className="task"+(t.done?" done":"")+(canEdit?"":" readonly");
@@ -515,6 +517,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
