@@ -175,7 +175,7 @@ hr{border:0;border-top:1px solid #333;margin:8px 0}
 const EDIT_CODE="TEAM2026";
 
 /* 🔔 TELEGRAM – FIXED & WORKING */
-const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbzLAvlDw6kYAZI5C1Zjtx9rZhjycwrIh5CJPcBvKKhqii7A0nlgzbl_zm6glJ8qaiH7mw/exec";
+const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbwGpu9xcB7-jJxpRW4mfNFQAmpx-zvncxJVK6Y26qkKntvKzfit-ue6WpTgAKdzoWJ80g/exec";
 function sendTelegram(data){
   fetch(TELEGRAM_WEBHOOK,{
     method:"POST",
@@ -380,6 +380,7 @@ console.log("Đang gửi thông báo cho:", task.person);
   // 🔔 TELEGRAM
 sendTelegram({
   person: task.person,
+  am: task.am,
   message:
     `🆕 <b>New task for you</b>\n` +
     `📌 ${task.text}\n` +
@@ -400,6 +401,7 @@ async function toggleDone(t){
   // 🔔 TELEGRAM
 sendTelegram({
   person: t.person,
+  am: t.am,
   message:
     `${t.done ? "✅ Completed" : "♻️ Re-open"}\n` +
     `📌 ${t.text}`
@@ -486,6 +488,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
