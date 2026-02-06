@@ -177,11 +177,17 @@ const EDIT_CODE="TEAM2026";
 /* 🔔 TELEGRAM – FIXED & WORKING */
 const TELEGRAM_WEBHOOK="https://script.google.com/macros/s/AKfycbxtlxQDdsln4WSOEmx23uWMeXwrgrsfOvrOJ0RoLO-elSBviRLEttOCXvBCh2QvSU3vAg/exec";
 function sendTelegram(data){
+  console.log("Dữ liệu gửi đi:", data);
+  try {
+    await
   fetch(TELEGRAM_WEBHOOK,{
     method:"POST",
     mode:"no-cors",
     body: JSON.stringify(data)
   });
+  } catch (e) {
+    console.error("Lỗi fetch Telegram:", e);
+  }
 }
 
 
@@ -368,7 +374,7 @@ async function saveTask(){
     text:taskText.value,
     person:taskPerson.value,
     type:taskType.value,
-    am: selectedAM,
+    am: taskAM.value,
     done:false,
     sort_order:(cache[selectedDay]?.length||0)
   };
@@ -485,6 +491,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
