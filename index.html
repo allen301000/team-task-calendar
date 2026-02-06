@@ -350,7 +350,7 @@ async function dropToOtherDay(day){
 sendTelegram({
   event: "move", // Chỉ Web (Member) nhận
   person: dragTask.person,
-  message: `📦 <b>Task moved</b>\n📌 ${dragTask.text}\n📅 New date: ${dragTask.task_date}`
+  message: ` <b>Task moved</b>\n ${dragTask.text}\n📅 New date: ${dragTask.task_date}`
 });
 
 
@@ -391,7 +391,7 @@ sendTelegram({
   event: "new", // Đúng loại để cả Web và AM cùng nhận
   person: task.person,
   am: task.am,
-  message: `🆕 <b>New task</b>\n📌 ${task.text}\n👤 AM: ${task.am}\n📅 ${task.task_date}`
+  message: `🆕 <b>New task</b>\n ${task.text}\n AM: ${task.am}\n📅 ${task.task_date}`
 });
 
 
@@ -409,7 +409,7 @@ if (t.done) { // Chỉ gửi khi check Hoàn thành, bỏ qua khi Re-open (tùy 
     event: "done", // Chỉ AM nhận
     person: t.person,
     am: t.am,
-    message: `✅ <b>Completed</b>\n📌 ${t.text}`
+    message: `✅ <b>Completed</b>\n ${t.text}`
   });
 }
 
@@ -494,6 +494,7 @@ supabaseClient.channel("tasks-rt")
 </script>
 </body>
 </html>
+
 
 
 
