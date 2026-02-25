@@ -751,14 +751,16 @@ async function saveTask(){
       .eq("id",editingTask.id);
 
     /* TELEGRAM EDIT */
-    sendTelegram({
-      event:"update",
-      person,
-      am,
-      message:
-      `✏️ <b>Task edited</b>\n`+
-      `${text}\nAM: ${am}`
-    });
+sendTelegram({
+  event:"update",
+  person: person,
+  am: am,
+  message:
+    `✏️ <b>Task Updated</b>\n` +
+    `📌 ${text}\n` +
+    `👤 ${person}\n` +
+    `🧑‍💼 AM: ${am}`
+});
 
     editingTask=null;
 
@@ -1058,4 +1060,5 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
