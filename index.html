@@ -740,18 +740,18 @@ async function saveTask(){
     renderCalendarOnly();
     closeModal();
 
-    await supabaseClient
-      .from("tasks")
-      .update({
-        text,
-        person,
-        type,
-        am
-      })
-      .eq("id",editingTask.id);
+await supabaseClient
+  .from("tasks")
+  .update({
+    text,
+    person,
+    type,
+    am
+  })
+  .eq("id",editingTask.id);
 
     /* TELEGRAM EDIT */
-sendTelegram({
+await sendTelegram({
   event:"update",
   person: person,
   am: am,
@@ -1060,5 +1060,6 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
