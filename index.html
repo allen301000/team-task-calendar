@@ -756,9 +756,11 @@ await sendTelegram({
   event:"update",
   person: person,
   am: am,
+  type: type,
  message:
-  `TASK UPDATED\n` +
-  `📌 <b>${text}</b>\n\n` +
+  `📌TASK UPDATED\n` +
+  `<b>${text}</b>\n\n` +
+  `Type: ${type}\n\n` +
   ` Member: ${person}\n` +
   ` AM: ${am || "N/A"}`
 });
@@ -807,9 +809,11 @@ await sendTelegram({
   sendTelegram({
     event:"new",
     person,
+    type,
     am,
     message:
       `<b>${text}</b>\n`+
+      `Type: ${removed.type}\n\n` +
       `AM: ${am}\n📅 ${task.task_date}`
   });
 
@@ -873,8 +877,8 @@ sendTelegram({
   person: removed.person,
   am: removed.am,
 message:
-  `TASK DELETED\n` +
-  `📌 <b>${removed.text}</b>\n\n` +
+  `📌TASK DELETED\n` +
+  `<b>${removed.text}</b>\n\n` +
   `Member: ${removed.person}\n` +
   `AM: ${removed.am || "N/A"}`
 });
@@ -1064,6 +1068,7 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
 
