@@ -758,8 +758,7 @@ await sendTelegram({
   am: am,
   type: type,
  message:
-  `📌TASK UPDATED\n` +
-  `<b>${text}</b>\n` +
+  `<b>📌${text}</b>\n` +
   `Type: ${type}\n` +
   ` Member: ${person}\n` +
   ` AM: ${am || "N/A"}`
@@ -877,8 +876,7 @@ sendTelegram({
   person: removed.person,
   am: removed.am,
 message:
-  `📌TASK DELETED\n` +
-  `<b>${removed.text}</b>\n\n` +
+  `<b>📌${removed.text}</b>\n\n` +
   `Member: ${removed.person}\n` +
   `AM: ${removed.am || "N/A"}`
 });
@@ -1068,6 +1066,7 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
 
