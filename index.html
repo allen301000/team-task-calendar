@@ -868,13 +868,16 @@ async function removeTask(id){
     .delete()
     .eq("id",id);
 
-  sendTelegram({
-    event:"delete",
-    person:removed.person,
-    am:removed.am,
-    message:
-      `❌ Deleted\n${removed.text}`
-  });
+sendTelegram({
+  event:"delete",
+  person: removed.person,
+  am: removed.am,
+  message:
+    `❌ <b>Task Deleted</b>\n` +
+    `📌 ${removed.text}\n` +
+    `👤 ${removed.person}\n` +
+    `🧑‍💼 AM: ${removed.am || "N/A"}`
+});
 
   toast("Deleted","#b71c1c");
 }
@@ -1061,6 +1064,7 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
 
