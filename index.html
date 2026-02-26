@@ -756,11 +756,11 @@ await sendTelegram({
   event:"update",
   person: person,
   am: am,
-  message:
-    `✏️ <b>Task Updated</b>\n` +
-    `📌 ${text}\n` +
-    `👤 ${person}\n` +
-    `🧑‍💼 AM: ${am}`
+ message:
+  `TASK UPDATED\n` +
+  `📌 <b>${text}</b>\n\n` +
+  ` Member: ${person}\n` +
+  ` AM: ${am || "N/A"}`
 });
 
     editingTask=null;
@@ -872,11 +872,11 @@ sendTelegram({
   event:"delete",
   person: removed.person,
   am: removed.am,
-  message:
-    `❌ <b>Task Deleted</b>\n` +
-    `📌 ${removed.text}\n` +
-    `👤 ${removed.person}\n` +
-    `🧑‍💼 AM: ${removed.am || "N/A"}`
+message:
+  `TASK DELETED\n` +
+  `📌 <b>${removed.text}</b>\n\n` +
+  `Member: ${removed.person}\n` +
+  `AM: ${removed.am || "N/A"}`
 });
 
   toast("Deleted","#b71c1c");
@@ -1064,6 +1064,7 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
 
