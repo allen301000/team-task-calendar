@@ -758,10 +758,10 @@ await sendTelegram({
   am: am,
   type: type,
  message:
-  `*${text}*\n` +
+  `Project: ${text}\n` +
   `Type: ${type}\n\n` +
-  ` Member: ${person}\n` +
-  ` AM: ${am || "N/A"}`
+  `Member: ${person}\n` +
+  `AM: ${am || "N/A"}`
 });
 
     editingTask=null;
@@ -811,9 +811,10 @@ await sendTelegram({
     type,
     am,
     message:
-      `*${text}*</b>\n\n`+
-      `Type: ${type}\n` +
-      `AM: ${am}\n📅 ${task.task_date}`
+      `Project: ${text}\n`+
+      `Type: ${type}\n\n` +
+      `AM: ${am}\n`+
+      `📅 ${task.task_date}`
   });
 
   toast("Task added","#2e7d32");
@@ -926,7 +927,7 @@ async function dropToOtherDay(day){
     person:dragTask.person,
     am:dragTask.am,
     message:
-      `*${dragTask.text}*\n\n📅New Date:${dragTask.task_date}`
+      `Project: ${dragTask.text}\n\n📅New Date: ${dragTask.task_date}`
   });
 
   dragTask=null;
@@ -1066,6 +1067,7 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
 
