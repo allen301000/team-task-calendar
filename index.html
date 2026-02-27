@@ -758,7 +758,7 @@ await sendTelegram({
   am: am,
   type: type,
  message:
-  `<b>📌${text}</b>\n` +
+  `<b>👉${text}</b>\n` +
   `Type: ${type}\n` +
   ` Member: ${person}\n` +
   ` AM: ${am || "N/A"}`
@@ -811,7 +811,7 @@ await sendTelegram({
     type,
     am,
     message:
-      `<b>${text}</b>\n`+
+      `<b>👉${text}</b>\n`+
       `Type: ${type}\n` +
       `AM: ${am}\n📅 ${task.task_date}`
   });
@@ -871,15 +871,15 @@ async function removeTask(id){
     .delete()
     .eq("id",id);
 
-sendTelegram({
-  event:"delete",
-  person: removed.person,
-  am: removed.am,
-message:
-  `<b>📌${removed.text}</b>\n\n` +
-  `Member: ${removed.person}\n` +
-  `AM: ${removed.am || "N/A"}`
-});
+// sendTelegram({
+//   event:"delete",
+//   person: removed.person,
+//   am: removed.am,
+// message:
+//   `<b>📌${removed.text}</b>\n\n` +
+//   `Member: ${removed.person}\n` +
+//   `AM: ${removed.am || "N/A"}`
+// });
 
   toast("Deleted","#b71c1c");
 }
@@ -926,7 +926,7 @@ async function dropToOtherDay(day){
     person:dragTask.person,
     am:dragTask.am,
     message:
-      `${dragTask.text}\n📅New Date:${dragTask.task_date}`
+      `👉${dragTask.text}\n📅New Date:${dragTask.task_date}`
   });
 
   dragTask=null;
@@ -1066,6 +1066,7 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
 
