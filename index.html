@@ -812,7 +812,7 @@ await sendTelegram({
     am,
     message:
       `<b>${text}</b>\n`+
-      `Type: ${removed.type}\n` +
+      `Type: ${type}\n` +
       `AM: ${am}\n📅 ${task.task_date}`
   });
 
@@ -1066,6 +1066,7 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
 
