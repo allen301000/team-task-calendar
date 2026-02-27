@@ -710,10 +710,10 @@ async function saveTask(){
 
   if(!canEdit || !selectedDay) return;
 
-  const text = taskText.value.trim();
+  const text   = taskText.value.trim();
   const person = taskPerson.value;
-  const type = taskType.value;
-  const am = taskAM.value;
+  const type   = taskType.value;
+  const am     = taskAM.value;
 
   if(!text){
     toast("Empty task","#b71c1c");
@@ -733,36 +733,54 @@ async function saveTask(){
       return;
     }
 
-    editingTask.text=text;
-    editingTask.person=person;
-    editingTask.type=type;
-    editingTask.am=am;
+    /* ✅ SAVE OLD DATA */
+    const oldTask = { ...editingTask };
 
+    /* ✅ UPDATE LOCAL TASK */
+    editingTask.text   = text;
+    editingTask.person = person;
+    editingTask.type   = type;
+    editingTask.am     = am;
+
+    /* ✅ UPDATE DATABASE */
+    const { error } = await supabaseClient
+      .from("tasks")
+      .update({
+        text,
+        person,
+        type,
+        am
+      })
+      .eq("id",editingTask.id);
+
+    if(error){
+      toast("Update failed","#b71c1c");
+      console.error(error);
+      return;
+    }
+
+    /* ✅ DETECT CHANGES */
+    const changes = detectChanges(oldTask, editingTask);
+
+    /* ✅ BUILD TELEGRAM MESSAGE */
+    const message =
+      `*${editingTask.text}*\n\n`+
+      (changes.length
+        ? changes.join("\n")
+        : "No visible changes");
+
+    /* ✅ TELEGRAM NOTIFICATION */
+    await sendTelegram({
+      event:"update",
+      person,
+      am,
+      type,
+      message
+    });
+
+    /* ✅ UPDATE UI */
     renderCalendarOnly();
     closeModal();
-
-await supabaseClient
-  .from("tasks")
-  .update({
-    text,
-    person,
-    type,
-    am
-  })
-  .eq("id",editingTask.id);
-
-    /* TELEGRAM EDIT */
-await sendTelegram({
-  event:"update",
-  person: person,
-  am: am,
-  type: type,
- message:
-  `Project: ${text}\n` +
-  `Type: ${type}\n\n` +
-  `Member: ${person}\n` +
-  `AM: ${am || "N/A"}`
-});
 
     editingTask=null;
 
@@ -1067,6 +1085,7 @@ supabaseClient
 </script>
 </body>
 </html>
+
 
 
 
